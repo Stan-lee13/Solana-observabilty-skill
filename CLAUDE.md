@@ -47,6 +47,7 @@ Load the specific layer file for the task. Never load all files at once.
 | Structured logging, OpenTelemetry, trace correlation | `skill/logging-tracing.md` |
 | Grafana JSON, React real-time dashboards, Prometheus exporters | `skill/dashboards.md` |
 | Tools, SDKs, services, reference links | `skill/resources.md` |
+| CU budget per-instruction, profiling in tests, CI regression gates | `skill/program-profiling.md` |
 
 ## Agent Routing
 
