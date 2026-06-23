@@ -38,10 +38,10 @@ Production observability, monitoring, and operational intelligence for Solana dA
 
 ```bash
 # Via the skill installer
-npx skills add https://github.com/YOUR_USERNAME/solana-observability-skill
+npx skills add https://github.com/Stan-lee13/solana-observability-skill
 
 # Or manually
-git clone https://github.com/YOUR_USERNAME/solana-observability-skill.git
+git clone https://github.com/Stan-lee13/solana-observability-skill.git
 cd solana-observability-skill
 ./install.sh
 ```
