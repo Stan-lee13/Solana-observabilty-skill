@@ -58,6 +58,7 @@ Load the specific layer file for the task. Never load all files at once.
 | Alert rules, runbooks, incident response | `sre-engineer` | sonnet |
 | Grafana dashboards, React components | `data-viz-engineer` | sonnet |
 | Production debugging, root cause | `incident-commander` | opus |
+| Dashboard design, PromQL authorship, React viz components | `data-viz-engineer` | sonnet |
 
 ## Commands
 
