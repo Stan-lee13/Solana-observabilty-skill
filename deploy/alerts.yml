@@ -1,0 +1,114 @@
+groups:
+  - name: solana-observability-critical
+    interval: 30s
+    rules:
+      - alert: SolanaRPCDown
+        expr: solana_rpc_healthy == 0
+        for: 2m
+        labels:
+          severity: p1
+          service: solana-rpc
+          owner: protocol-ops
+          slo: rpc-availability
+          runbook_url: runbooks/rpc-degradation.md
+          dashboard_url: grafana/d/solana-infrastructure
+        annotations:
+          summary: "RPC endpoint {{ $labels.endpoint }} is unhealthy"
+          description: "Endpoint {{ $labels.endpoint }} has failed health probes for 2 minutes."
+
+      - alert: SolanaRPCSlotLagHigh
+        expr: solana_slot_lag_slots > 50
+        for: 3m
+        labels:
+          severity: p1
+          service: solana-rpc
+          owner: protocol-ops
+          slo: rpc-availability
+          runbook_url: runbooks/rpc-degradation.md
+          dashboard_url: grafana/d/solana-infrastructure
+        annotations:
+          summary: "RPC endpoint {{ $labels.endpoint }} slot lag is high"
+          description: "Slot lag is {{ $value }} slots, above the 50-slot P1 threshold."
+
+      - alert: SolanaRPCP95LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(solana_rpc_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 2.5
+        for: 10m
+        labels:
+          severity: p2
+          service: solana-rpc
+          owner: protocol-ops
+          slo: rpc-latency
+          runbook_url: runbooks/rpc-degradation.md
+          dashboard_url: grafana/d/solana-infrastructure
+        annotations:
+          summary: "RPC p95 latency high for {{ $labels.endpoint }}"
+          description: "p95 getSlot latency is above 2.5s for 10 minutes."
+
+      - alert: SolanaTxSuccessRateLow
+        expr: |
+          sum(rate(solana_transaction_total{status="failed"}[5m]))
+          /
+          clamp_min(sum(rate(solana_transaction_total[5m])), 1)
+          > 0.10
+        for: 5m
+        labels:
+          severity: p0
+          service: solana-program
+          owner: protocol-ops
+          slo: transaction-success
+          runbook_url: runbooks/transaction-success-rate-low.md
+          dashboard_url: grafana/d/solana-program
+        annotations:
+          summary: "Transaction failure rate above 10%"
+          description: "Critical transaction failure-rate threshold crossed for 5 minutes."
+
+      - alert: SolanaErrorBudgetFastBurn
+        expr: |
+          (
+            sum(rate(solana_transaction_total{status="failed"}[1h]))
+            /
+            clamp_min(sum(rate(solana_transaction_total[1h])), 1)
+          ) / 0.005 > 2
+        for: 30m
+        labels:
+          severity: p1
+          service: solana-program
+          owner: protocol-ops
+          slo: transaction-success
+          runbook_url: runbooks/transaction-success-rate-low.md
+          dashboard_url: grafana/d/solana-program
+        annotations:
+          summary: "Transaction success error budget burning fast"
+          description: "30-day 99.5% SLO burn rate is above 2x for 30 minutes."
+
+      - alert: SolanaFeePayerLow
+        expr: solana_fee_payer_balance_sol < 0.5
+        for: 5m
+        labels:
+          severity: p1
+          service: solana-program
+          owner: protocol-ops
+          slo: transaction-success
+          runbook_url: runbooks/fee-payer-low.md
+          dashboard_url: grafana/d/solana-program
+        annotations:
+          summary: "Fee payer balance low for {{ $labels.account_alias }}"
+          description: "Fee payer has less than 0.5 SOL available."
+
+      - alert: SolanaProgramUpgradeDetected
+        expr: increase(solana_program_upgrade_detected_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: p0
+          service: solana-program
+          owner: protocol-security
+          security: program-upgrade
+          runbook_url: runbooks/program-upgrade-detected.md
+          dashboard_url: grafana/d/solana-program
+        annotations:
+          summary: "Program upgrade detected for {{ $labels.program_id }}"
+          description: "A monitored program emitted an upgrade/data hash change signal. Verify immediately."

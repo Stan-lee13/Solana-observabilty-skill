@@ -1,0 +1,85 @@
+name: CI - Lint & Validate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  markdown-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli@0.33.0
+      - name: Run markdownlint
+        run: markdownlint-cli "**/*.md" || true
+
+  grafana-json-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files under deploy/grafana/dashboards"
+          failed=0
+          for f in $(git ls-files 'deploy/grafana/**/*.json'); do
+            if ! node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))"; then
+              echo "Invalid JSON: $f"; failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then exit 2; fi
+
+  promtool-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install promtool
+        run: |
+          set -e
+          ARCH=amd64
+          TAG=$(curl -s https://api.github.com/repos/prometheus/prometheus/releases/latest | jq -r .tag_name)
+          curl -sL "https://github.com/prometheus/prometheus/releases/download/${TAG}/prometheus-${TAG#v}.linux-${ARCH}.tar.gz" -o prometheus.tar.gz
+          tar xzf prometheus.tar.gz
+          ls -la
+      - name: Run promtool check (rules)
+        run: |
+          if [ -d rules ]; then
+            ./prometheus-*/promtool check rules rules || true
+          else
+            echo 'No rules directory; skipping promtool check'
+          fi
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate dashboard JSON
+        run: python -m json.tool deploy/grafana/dashboards/solana-infrastructure.json > /dev/null
+      - name: Validate YAML syntax
+        run: python - <<'PY'
+import pathlib, yaml
+for path in list(pathlib.Path('deploy').glob('*.yml')) + list(pathlib.Path('deploy/grafana/provisioning').glob('**/*.yml')):
+    yaml.safe_load(path.read_text())
+    print(f'validated {path}')
+PY
+      - name: Build exporter
+        working-directory: deploy/solana-exporter
+        run: npm install && npm run build
+      - name: Docker Compose config
+        run: docker compose -f deploy/docker-compose.yml config

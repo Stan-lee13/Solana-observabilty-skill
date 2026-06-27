@@ -1,0 +1,9 @@
+# Require domain review for production-sensitive areas
+/skill/ @Stan-lee13
+/agents/ @Stan-lee13
+/commands/ @Stan-lee13
+/rules/ @Stan-lee13
+/deploy/ @Stan-lee13
+/runbooks/ @Stan-lee13
+/docs/ @Stan-lee13
+/SECURITY.md @Stan-lee13

@@ -1,0 +1,59 @@
+{
+  "title": "Solana Infrastructure Overview",
+  "uid": "solana-infra",
+  "tags": ["solana", "infrastructure"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "panels": [
+    {
+      "title": "RPC Health Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "expr": "solana_rpc_healthy", "legendFormat": "{{endpoint}}" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ],
+          "thresholds": { "steps": [{ "value": 0, "color": "red" }, { "value": 1, "color": "green" }] }
+        }
+      }
+    },
+    {
+      "title": "Slot Lag",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "expr": "solana_slot_lag_slots", "legendFormat": "{{endpoint}}" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 },
+          "thresholds": { "steps": [{ "value": 0, "color": "green" }, { "value": 25, "color": "yellow" }, { "value": 50, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "title": "RPC Latency P95",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(solana_rpc_request_duration_seconds_bucket[5m])) by (le, endpoint))", "legendFormat": "P95 {{endpoint}}" }],
+            "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Transaction Success Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 8 },
+      "targets": [{
+        "expr": "sum(rate(solana_transaction_total{status=\"success\"}[5m])) / clamp_min(sum(rate(solana_transaction_total[5m])), 1)",
+        "legendFormat": "Success Rate"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "steps": [{ "value": 0, "color": "red" }, { "value": 0.95, "color": "yellow" }, { "value": 0.995, "color": "green" }] }
+        }
+      }
+    }
+  ]
+}
