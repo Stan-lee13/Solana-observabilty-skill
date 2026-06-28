@@ -18,8 +18,8 @@ const PROGRAM_IDS = (process.env.PROGRAM_IDS ?? "")
   .map((v) => v.trim())
   .filter(Boolean);
 
-type EndpointConfig = { alias: string; url: string };
-type EndpointHealth = {
+export type EndpointConfig = { alias: string; url: string };
+export type EndpointHealth = {
   endpoint: string;
   healthy: boolean;
   slotLag: number;
@@ -29,18 +29,47 @@ type EndpointHealth = {
   checkedAt: string;
 };
 
-const RPC_ENDPOINTS: EndpointConfig[] = [
-  {
-    alias: process.env.HELIUS_RPC_ALIAS ?? "helius-primary",
-    url: process.env.HELIUS_RPC_URL ?? "https://api.mainnet-beta.solana.com",
-  },
-  {
-    alias: process.env.QUICKNODE_RPC_ALIAS ?? "quicknode-backup",
-    url: process.env.QUICKNODE_RPC_URL ?? "",
-  },
-].filter((endpoint) => endpoint.url.length > 0);
+export type ExporterConfig = {
+  port: number;
+  cluster: string;
+  scrapeIntervalMs: number;
+  programIds: string[];
+  rpcEndpoints: EndpointConfig[];
+};
 
-const registry = new Registry();
+export function parseProgramIds(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+export function buildExporterConfig(env = process.env): ExporterConfig {
+  const rpcEndpoints: EndpointConfig[] = [
+  {
+    alias: env.HELIUS_RPC_ALIAS ?? "helius-primary",
+    url: env.HELIUS_RPC_URL ?? "https://api.mainnet-beta.solana.com",
+  },
+  {
+    alias: env.QUICKNODE_RPC_ALIAS ?? "quicknode-backup",
+    url: env.QUICKNODE_RPC_URL ?? "",
+  },
+  ].filter((endpoint) => endpoint.url.length > 0);
+
+  return {
+    port: Number.parseInt(env.PORT ?? "3001", 10),
+    cluster: env.SOLANA_CLUSTER ?? "mainnet-beta",
+    scrapeIntervalMs:
+      Number.parseInt(env.SCRAPE_INTERVAL_SECONDS ?? "15", 10) * 1000,
+    programIds: parseProgramIds(env.PROGRAM_IDS),
+    rpcEndpoints,
+  };
+}
+
+const CONFIG = buildExporterConfig();
+const { port: PORT, cluster: CLUSTER, scrapeIntervalMs: SCRAPE_INTERVAL_MS, programIds: PROGRAM_IDS, rpcEndpoints: RPC_ENDPOINTS } = CONFIG;
+
+export const registry = new Registry();
 registry.setDefaultLabels({ cluster: CLUSTER });
 collectDefaultMetrics({ register: registry, prefix: "nodejs_" });
 
@@ -106,7 +135,7 @@ new Histogram({
   registers: [registry],
 });
 
-function classifyError(error: unknown): string {
+export function classifyError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.toLowerCase().includes("timeout")) return "timeout";
   if (message.toLowerCase().includes("rate")) return "rate_limited";
@@ -114,7 +143,7 @@ function classifyError(error: unknown): string {
   return "rpc_error";
 }
 
-async function getSlot(
+export async function getSlot(
   endpoint: EndpointConfig,
 ): Promise<{ slot: number; latencySeconds: number }> {
   const start = performance.now();
@@ -123,9 +152,11 @@ async function getSlot(
   return { slot, latencySeconds: (performance.now() - start) / 1000 };
 }
 
-async function checkRpcHealth(): Promise<EndpointHealth[]> {
+export async function checkRpcHealth(
+  endpoints: EndpointConfig[] = RPC_ENDPOINTS,
+): Promise<EndpointHealth[]> {
   const checkedAt = new Date().toISOString();
-  const firstPass = await Promise.allSettled(RPC_ENDPOINTS.map(getSlot));
+  const firstPass = await Promise.allSettled(endpoints.map(getSlot));
   const validSlots = firstPass
     .filter(
       (
@@ -139,7 +170,7 @@ async function checkRpcHealth(): Promise<EndpointHealth[]> {
   const trustedTip = Math.max(...validSlots, 0);
 
   return Promise.all(
-    RPC_ENDPOINTS.map(async (endpoint): Promise<EndpointHealth> => {
+    endpoints.map(async (endpoint): Promise<EndpointHealth> => {
       try {
         const { slot, latencySeconds } = await getSlot(endpoint);
         const slotLag = Math.max(0, trustedTip - slot);
@@ -147,7 +178,7 @@ async function checkRpcHealth(): Promise<EndpointHealth[]> {
 
         rpcHealthGauge.set(
           { cluster: CLUSTER, endpoint: endpoint.alias },
-          healthy ? 1 : 0,
+        healthy ? 1 : 0,
         );
         rpcLatencyHistogram.observe(
           { cluster: CLUSTER, endpoint: endpoint.alias, method: "getSlot" },
@@ -212,9 +243,6 @@ async function scrapeLoop() {
   }
 }
 
-void scrapeLoop();
-setInterval(() => void scrapeLoop(), SCRAPE_INTERVAL_MS);
-
 const app = new Hono();
 
 app.get("/metrics", async (c) => {
@@ -266,12 +294,20 @@ app.get("/", (c) =>
   }),
 );
 
-console.log(
-  JSON.stringify({
-    level: "info",
-    msg: "exporter_started",
-    port: PORT,
-    endpoints: RPC_ENDPOINTS.map((e) => e.alias),
-  }),
-);
-serve({ fetch: app.fetch, port: PORT });
+export function startExporter() {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      msg: "exporter_started",
+      port: PORT,
+      endpoints: RPC_ENDPOINTS.map((e) => e.alias),
+    }),
+  );
+  void scrapeLoop();
+  setInterval(() => void scrapeLoop(), SCRAPE_INTERVAL_MS);
+  serve({ fetch: app.fetch, port: PORT });
+}
+
+if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) {
+  startExporter();
+}

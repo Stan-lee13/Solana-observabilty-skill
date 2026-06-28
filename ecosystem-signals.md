@@ -188,3 +188,5 @@ Actions:
 - **Indexer lag**: Delay from finalized chain state to queryable app state.
 - **TGE**: Token generation event: mint, claim, listing, and liquidity setup.
 - **Error budget**: Allowed failure budget for an SLO window.
+
+

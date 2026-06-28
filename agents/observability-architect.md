@@ -39,7 +39,7 @@ Draw this before choosing any tool:
 
 ```
 User opens dApp
-    ↓ 
+    ↓
 Wallet connects (Phantom/Backpack/Mobile)
     ↓
 Frontend reads program state (RPC getProgramAccounts / getAccountInfo)
@@ -55,7 +55,7 @@ Transaction sent (sendRawTransaction or sendTransaction)
 Confirmation polling (getSignatureStatuses)
     ↓
 Frontend updates state
-    ↓ 
+    ↓
 Indexer picks up event (Helius webhook / Yellowstone gRPC)
     ↓
 Database updated → UI reflects confirmed state
@@ -128,7 +128,7 @@ TIER 1 — Day 1 (30 minutes to implement):
   ✅ Structured logging with correlation IDs (Pino)
   ✅ Discord webhook for critical failures
   ✅ Uptime monitor (UptimeRobot free tier watching /health)
-  
+
   Metrics this gives you:
   - "Is the service up?" (binary)
   - "Is RPC reachable?" (binary)
@@ -140,7 +140,7 @@ TIER 2 — Week 1 (4-8 hours to implement):
   ✅ RPC latency histograms (multi-endpoint)
   ✅ Grafana Cloud free tier with pre-built dashboard
   ✅ Alertmanager with PagerDuty + Discord routing
-  
+
   Metrics this adds:
   - "What % of transactions succeed?" (by instruction type)
   - "Which RPC is slowest?" (p50/p95/p99 latency)
@@ -152,7 +152,7 @@ TIER 3 — Week 2-4 (ongoing investment):
   ✅ CU usage tracking per instruction
   ✅ Helius/Yellowstone gRPC stream for real-time account monitoring
   ✅ Auto-remediation for RPC failover
-  
+
   Metrics this adds:
   - Full end-to-end transaction trace (where did latency happen?)
   - "Are we burning error budget too fast?" (SLO dashboard)
@@ -236,7 +236,7 @@ Week 2: [specific tasks]
 Month 2: [specific tasks]
 
 ## What Success Looks Like
-[Specific, measurable: "We can answer 'why did this transaction fail?' in <5 minutes 
+[Specific, measurable: "We can answer 'why did this transaction fail?' in <5 minutes
 using only our dashboards and logs, without reading raw blockchain data"]
 ```
 
@@ -247,7 +247,7 @@ using only our dashboards and logs, without reading raw blockchain data"]
    → Fix: Start with 10 metrics maximum. Add more only when a gap causes an incident.
 
 ❌ Dashboards without SLOs — Beautiful charts nobody acts on
-   → Fix: Every dashboard panel must have a corresponding alert that fires when 
+   → Fix: Every dashboard panel must have a corresponding alert that fires when
      the panel shows something bad.
 
 ❌ Monitoring only the happy path — Track successes but not failure modes
@@ -259,7 +259,7 @@ using only our dashboards and logs, without reading raw blockchain data"]
 ❌ Alert routing to a shared Discord channel — Nobody owns it, nobody acts
    → Fix: P0/P1 alerts go to PagerDuty (pages a specific person). Discord gets P2/P3 only.
 
-❌ Frontend monitoring only by checking "did the TX succeed?" — 
+❌ Frontend monitoring only by checking "did the TX succeed?" —
    Misses signing failures, RPC timeouts, simulation errors
    → Fix: Instrument at every step: connect, simulate, sign, send, confirm.
 ```
@@ -269,7 +269,7 @@ using only our dashboards and logs, without reading raw blockchain data"]
 
 ```
 "observability-architect design monitoring for my new AMM — we're launching in 2 weeks"
-→ Asks 5 questions, produces full Tier 1+2 architecture, SLO definitions, 
+→ Asks 5 questions, produces full Tier 1+2 architecture, SLO definitions,
   metric inventory, tool stack with rationale, week-by-week rollout plan
 
 "observability-architect review my current monitoring — I have Prometheus but
@@ -282,6 +282,8 @@ using only our dashboards and logs, without reading raw blockchain data"]
   design, SLO tightening recommendations
 
 "observability-architect design the correlation strategy for our multi-program protocol"
-→ Full AsyncLocalStorage context design, span naming conventions, 
+→ Full AsyncLocalStorage context design, span naming conventions,
   cross-program trace propagation pattern
 ```
+
+

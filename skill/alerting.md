@@ -400,7 +400,7 @@ Threshold: `{threshold}%`
    ```bash
    # Was the program upgraded recently?
    solana program show $PROGRAM_ID --url $RPC_URL
-   
+
    # Compare with known good deployment
    git log --oneline -5
    ```
@@ -615,3 +615,5 @@ class AlertDeduplicator {
   }
 }
 ```
+
+

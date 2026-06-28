@@ -12,7 +12,10 @@
 
 Production observability for Solana dApps — from RPC health checks to SLO burn rate alerting. This skill turns operational blindness into complete, correlated visibility across the full stack.
 
-**The problem it solves:** Every Solana protocol eventually faces the same questions at 3am — "Why are my transactions failing?" "Is my RPC down or is my program broken?" "How do I know before my users do?" This skill provides production-grade answers with deployable infrastructure you can spin up immediately.
+**The problem it solves:** Every Solana protocol eventually faces the same questions at 3am
+— "Why are my transactions failing?" "Is my RPC down or is my program broken?"
+"How do I know before my users do?" This skill provides production-grade answers
+with deployable infrastructure you can spin up immediately.
 
 ---
 
@@ -91,10 +94,15 @@ solana-observability-skill/
 Every team re-builds the same RPC health check, the same CU monitor, the same alert webhook. This ships it in 60 seconds with a `docker compose up`.
 
 ### vs. generic monitoring guides
-Generic guides teach Prometheus concepts. This skill teaches Solana-specific patterns: slot lag thresholds, CU budget alerting, instruction discriminator tracking, program upgrade detection.
+Generic guides teach Prometheus concepts. This skill teaches Solana-specific patterns:
+slot lag thresholds, CU budget alerting, instruction discriminator tracking,
+program upgrade detection.
 
 ### vs. other observability submissions
-This skill covers 9 skill files across 7 observability layers (infrastructure, program, application, alerting, tracing, dashboards, profiling/resources), 6 agents with production-grade depth, runbooks, governance docs, and a deployable local monitoring stack.
+This skill covers 9 skill files across 7 observability layers (infrastructure,
+program, application, alerting, tracing, dashboards, profiling/resources), 6 agents
+with production-grade depth, runbooks, governance docs, and a deployable local
+monitoring stack.
 
 ---
 
@@ -102,11 +110,16 @@ This skill covers 9 skill files across 7 observability layers (infrastructure, p
 
 | Layer | Skill File | What's Covered |
 |-------|-----------|----------------|
-| **Infrastructure** | `infrastructure-monitoring.md` | Multi-endpoint health, slot lag, rate limits, circuit breakers, endpoint failover |
-| **Program** | `program-monitoring.md` | Per-instruction success rates, CU metering, upgrade detection, authority monitoring |
-| **Application** | `application-observability.md` | Wallet error classification, UX funnels, client-side latency, Sentry integration |
-| **Alerting** | `alerting.md` | SLO burn rates (multi-window), severity routing P0→P4, auto-remediation |
-| **Logging/Tracing** | `logging-tracing.md` | Structured Pino logging, OpenTelemetry spans, trace correlation IDs |
+| **Infrastructure** | `infrastructure-monitoring.md` | Multi-endpoint health, slot lag, rate limits,
+  circuit breakers, endpoint failover |
+| **Program** | `program-monitoring.md` | Per-instruction success rates, CU metering,
+  upgrade detection, authority monitoring |
+| **Application** | `application-observability.md` | Wallet error classification, UX funnels,
+  client-side latency, Sentry integration |
+| **Alerting** | `alerting.md` | SLO burn rates (multi-window), severity routing P0→P4,
+  auto-remediation |
+| **Logging/Tracing** | `logging-tracing.md` | Structured Pino logging, OpenTelemetry spans,
+  trace correlation IDs |
 | **Dashboards** | `dashboards.md` | Grafana JSON dashboards, React real-time components, PromQL queries |
 | **CU Profiling** | `program-profiling.md` | Per-instruction CU budgets, CI regression gates, production CU forensics |
 
@@ -126,7 +139,7 @@ const monitor = new RpcHealthMonitor([
 app.get('/healthz', async (c) => {
   const results = await monitor.checkHealth();
   const healthy = results.filter(r => r.healthy);
-  return c.json({ 
+  return c.json({
     status: healthy.length > 0 ? 'ok' : 'degraded',
     endpoints: results,
   });
@@ -173,3 +186,5 @@ MIT — free to use, submodule, or extend.
 ## Author
 
 Built by Victor Stanley ([@Stan-lee13](https://github.com/Stan-lee13)) for the Superteam Earn Solana AI Kit bounty.
+
+

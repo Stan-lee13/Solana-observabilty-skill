@@ -1,4 +1,4 @@
-﻿# Agent: Visualization Engineer
+# Agent: Visualization Engineer
 
 role: Visualization architect — dashboard hierarchy, stakeholder views, governance, public/internal visual strategy
 model: claude-sonnet-4-5
@@ -952,3 +952,5 @@ Fix: Aggregate by instruction, cluster, program, endpoint, pool, or account grou
   runbook links, and incident handoff context for incident-commander.
 
 ```
+
+

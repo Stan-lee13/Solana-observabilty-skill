@@ -23,3 +23,5 @@ P1 when indexer lag exceeds 5 minutes for user-facing balances, claims, or statu
 - Lag remains below 60 seconds for 15 minutes.
 - Stale-data UI banner is removed only after freshness is verified.
 - Missing events are replayed or reconciled.
+
+

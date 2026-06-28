@@ -103,7 +103,7 @@ ALWAYS: use read-only RPC connections for monitoring (no signing capability)
 
 ```
 solana-observability-skill/
-├── CLAUDE.md                              # This file
+├── AGENTS.md                              # This file
 ├── README.md                              # User documentation
 ├── LICENSE                                # MIT
 ├── install.sh                             # One-command installer

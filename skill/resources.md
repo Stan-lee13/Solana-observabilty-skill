@@ -22,7 +22,7 @@ Principles:
 5. **Versioned resources** — dashboards, alerts, runbooks, and deploy manifests
    live in source control.
 6. **No secret-bearing resources in clients** — never expose paid RPC URLs in
-   `NEXT_PUBLIC_*`, public dashboards, or browser WebSocket examples.
+  client-side configuration, public dashboards, or browser WebSocket examples.
 
 ## Production Tool Selection Matrix
 
@@ -63,7 +63,7 @@ Provider selection checklist:
 Use current stable major versions compatible with the target codebase.
 
 | Area | Package / Tool | Use |
-|---|---|---|
+| --- | --- | --- |
 | Solana client | `@solana/kit` or `@solana/web3.js` | RPC, accounts, signatures |
 | Metrics | `prom-client` | Node.js Prometheus exporter |
 | HTTP | `hono`, `@hono/node-server` | lightweight health and metrics endpoints |
@@ -147,8 +147,8 @@ Cost levers, in preferred order:
 6. Consolidate duplicate provider dashboards.
 7. Negotiate RPC provider tier based on measured traffic.
 
-Do not optimize by removing transaction success, authority monitoring, slot lag,
-indexer freshness, fee payer balance, or P0/P1 alerting.
+Do not optimize by removing transaction success, authority monitoring,
+slot lag, indexer freshness, fee payer balance, or P0/P1 alerting.
 
 ## Resource Allocation Strategies
 
@@ -285,30 +285,30 @@ Maintain owners for:
 - Alert rules without runbooks
 - Webhooks with no authentication
 - Full `getProgramAccounts` scans every few seconds
-- Client-side paid RPC keys in `NEXT_PUBLIC_*`
+- Client-side paid RPC keys in browser-facing config or public variables.
 
 ## Reference Links
 
 | Resource | URL | Use |
-|---|---|---|
-| Solana Status | https://status.solana.com/ | official network state |
-| Solana Downtime | https://downtime.solana.com/ | historical incidents |
-| Solana RPC Docs | https://solana.com/docs/rpc | RPC method reference |
-| Solana Programs Docs | https://solana.com/docs/programs | program model |
-| SIMD proposals | https://github.com/solana-foundation/solana-improvement-documents | protocol changes |
-| Helius Status | https://status.helius.xyz/ | provider status |
-| QuickNode Status | https://status.quicknode.com/ | provider status |
-| Triton Status | https://status.triton.one/ | provider status |
-| Syndica Status | https://status.syndica.io/ | provider status |
-| Alchemy Status | https://status.alchemy.com/ | provider status |
-| Solscan | https://solscan.io/ | transaction/program explorer |
-| SolanaFM | https://solana.fm/ | advanced explorer |
-| LiteSVM | https://github.com/LiteSVM/litesvm | fast local testing |
-| Mollusk | https://github.com/buffalojoec/mollusk | CU profiling tests |
-| Trident | https://github.com/Ackee-Blockchain/trident | fuzz testing |
-| Prometheus Docs | https://prometheus.io/docs/introduction/overview/ | metrics and alerts |
-| Grafana Docs | https://grafana.com/docs/grafana/latest/ | dashboards and alerting |
-| OpenTelemetry JS | https://opentelemetry.io/docs/languages/js/ | tracing and metrics |
+| --- | --- | --- |
+| Solana Status | [https://status.solana.com/](https://status.solana.com/) | official network state |
+| Solana Downtime | [https://downtime.solana.com/](https://downtime.solana.com/) | historical incidents |
+| Solana RPC Docs | [https://solana.com/docs/rpc](https://solana.com/docs/rpc) | RPC method reference |
+| Solana Programs Docs | [https://solana.com/docs/programs](https://solana.com/docs/programs) | program model |
+| SIMD proposals | [https://github.com/solana-foundation/solana-improvement-documents](https://github.com/solana-foundation/solana-improvement-documents) | protocol changes |
+| Helius Status | [https://status.helius.xyz/](https://status.helius.xyz/) | provider status |
+| QuickNode Status | [https://status.quicknode.com/](https://status.quicknode.com/) | provider status |
+| Triton Status | [https://status.triton.one/](https://status.triton.one/) | provider status |
+| Syndica Status | [https://status.syndica.io/](https://status.syndica.io/) | provider status |
+| Alchemy Status | [https://status.alchemy.com/](https://status.alchemy.com/) | provider status |
+| Solscan | [https://solscan.io/](https://solscan.io/) | transaction/program explorer |
+| SolanaFM | [https://solana.fm/](https://solana.fm/) | advanced explorer |
+| LiteSVM | [https://github.com/LiteSVM/litesvm](https://github.com/LiteSVM/litesvm) | fast local testing |
+| Mollusk | [https://github.com/buffalojoec/mollusk](https://github.com/buffalojoec/mollusk) | CU profiling tests |
+| Trident | [https://github.com/Ackee-Blockchain/trident](https://github.com/Ackee-Blockchain/trident) | fuzz testing |
+| Prometheus Docs | [https://prometheus.io/docs/introduction/overview/](https://prometheus.io/docs/introduction/overview/) | metrics and alerts |
+| Grafana Docs | [https://grafana.com/docs/grafana/latest/](https://grafana.com/docs/grafana/latest/) | dashboards and alerting |
+| OpenTelemetry JS | [https://opentelemetry.io/docs/languages/js/](https://opentelemetry.io/docs/languages/js/) | tracing and metrics |
 
 ## Quick Reference: Metric Types
 
@@ -376,25 +376,25 @@ resource "grafana_dashboard" "tx_success" {
 
 - Prometheus disk estimate: `bytes_per_sample * samples_per_series * series * retention_seconds`.
 - Approx bytes per sample: 16-40 bytes depending on label sizes and TSDB overhead.
-- Example: 100k series * 3600 samples/day * 15 days * 30 bytes ≈ 162 GB.
+- Example: 100k series × 3600 samples/day × 15 days × 30 bytes ≈ 162 GB.
 
 ## Templates and Checklists
 
 Add these templates to PR descriptions when touching observability resources:
 
 - **Observability PR Template**
-   - Owner:
-   - Affected dashboards/alerts:
-   - SLO impact: yes/no (describe)
-   - Cardinality delta estimate:
-   - CI checks added:
-   - Rollback plan:
+  - Owner:
+  - Affected dashboards/alerts:
+  - SLO impact: yes/no (describe)
+  - Cardinality delta estimate:
+  - CI checks added:
+  - Rollback plan:
 
 - **Cost Review Checklist**
-   - Expected monthly cost delta:
-   - Retention changes and rationale:
-   - Cardinality mitigation:
-   - Negotiation tasks for providers:
+  - Expected monthly cost delta:
+  - Retention changes and rationale:
+  - Cardinality mitigation:
+  - Negotiation tasks for providers:
 
 ## Failure Recovery Playbooks
 
@@ -416,4 +416,6 @@ Each playbook must include `detection -> containment -> mitigation -> recovery -
 
 - How to add a new SLI: create Prometheus rule for numerator/denominator, create Grafana panel with SLO metadata, add alert with `runbook_url`.
 - How to onboard a new RPC provider: add to exporter config, add endpoint alias, run synthetic checks, validate against secondary provider.
+
+
 

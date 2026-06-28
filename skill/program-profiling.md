@@ -178,7 +178,7 @@ fn profile_complex_instruction_cu() {
     );
 
     let meta = svm.send_transaction(tx).expect("transaction failed");
-    
+
     let profile = CUProfile::from_meta("complex_instruction", &meta, 800_000);
     profile.assert_within_budget();
     profile.warn_if_tight();
@@ -232,7 +232,7 @@ jobs:
           script: |
             const fs = require('fs');
             const results = JSON.parse(fs.readFileSync('cu_results.json'));
-            const table = results.map(r => 
+            const table = results.map(r =>
               `| ${r.name} | ${r.cu_used} | ${r.baseline} | ${r.delta > 0 ? '🔴' : '✅'} ${r.delta > 0 ? '+' : ''}${r.delta} |`
             ).join('\n');
             github.rest.issues.createComment({
@@ -254,7 +254,7 @@ When an instruction is too expensive, these patterns reduce cost:
 // ❌ One instruction doing 3 things = 3x CPI cost
 pub fn mint_stake_and_notify(ctx: Context<...>) -> Result<()> {
     mint_nft(ctx)?;       // 50,000 CU
-    stake_nft(ctx)?;      // 30,000 CU  
+    stake_nft(ctx)?;      // 30,000 CU
     notify_holders(ctx)?; // 40,000 CU
     Ok(())                // Total: 120,000 CU — risky
 }
@@ -384,3 +384,5 @@ Safety buffer (20%): ___ CU
 → Alert if > 80% consumed: ___ CU
 → Fail CI test if > baseline + 5%: ___ CU
 ```
+
+

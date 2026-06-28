@@ -25,7 +25,7 @@ Never accept the first answer. Every "the RPC is slow" has a root cause.
 ```
 Symptom:        "Transactions are failing"
 Why 1:          "sendTransaction returns error"
-Why 2:          "Transaction is being rejected"  
+Why 2:          "Transaction is being rejected"
 Why 3:          "What kind of rejection?" → Custom program error vs network error vs simulation error
 Why 4 (custom error): "Which instruction? Which constraint?"
 Why 4 (network):      "Is it slot lag? Compute limit? Fee market?"
@@ -61,7 +61,7 @@ import { Connection } from "@solana/web3.js";
 
 const connection = new Connection(process.env.HELIUS_RPC_URL!);
 
-type FailureClass = 
+type FailureClass =
   | "simulation_failure"       // Rejected before sending
   | "network_rejection"        // Sent, rejected by validator
   | "confirmation_timeout"     // Sent, never confirmed
@@ -227,7 +227,7 @@ PATTERN: "All transactions fail after 3pm UTC, then recover"
 Root cause: RPC rate limits reset daily, usage peaks mid-day
 Fix: Implement RPC load balancing across multiple endpoints
 
-PATTERN: "Random 1-2% of transactions fail with no clear pattern"  
+PATTERN: "Random 1-2% of transactions fail with no clear pattern"
 Root cause: Blockhash expiration — transactions built too early, RPC latency causing staleness
 Fix: Fetch fresh blockhash immediately before signing, not when building the transaction
 
@@ -322,3 +322,4 @@ WHAT WE'RE ADDING:
   monitoring gaps, and specific action items with owners and deadlines
 
 ```
+

@@ -4,7 +4,7 @@ Use this checklist before publishing or installing a new version of the Solana o
 
 ## Repository Quality
 
-- [ ] No TODOs, placeholders, fake dashboard IDs, or `YOUR_USERNAME` references.
+- [ ] No TODOs, fake dashboard IDs, or accidental example credentials.
 - [ ] Agent routing in `CLAUDE.md`, `README.md`, and `skill/SKILL.md` is consistent.
 - [ ] Metric names match `rules/monitoring-rules.md`.
 - [ ] P0/P1 alerts link to runbooks.
@@ -45,3 +45,5 @@ Document changes to:
 - dashboard visibility
 - install path or deploy stack
 - external provider recommendations
+
+

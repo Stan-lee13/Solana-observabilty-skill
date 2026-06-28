@@ -193,7 +193,7 @@ receivers:
 1. Run: `[exact command]`
    Expected: [what healthy looks like]
    If unexpected: [next step]
-   
+
 2. Check: [specific metric or log query]
 
 ## Remediation
@@ -234,3 +234,5 @@ If not resolved within [TIME]:
 → Diagnoses alert fatigue, suggests for-duration increase, symptom-based reformulation
 
 ```
+
+

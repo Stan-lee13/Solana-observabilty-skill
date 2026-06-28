@@ -1,5 +1,9 @@
 name: solana-observability
-description: Production observability, monitoring, and health intelligence for Solana dApps. Covers RPC health checks, on-chain metrics collection, transaction success-rate monitoring, program upgrade tracking, structured logging, distributed tracing, alerting, and Grafana dashboards. Cross-domain skill spanning DevOps, data engineering, and Solana operations.
+description: Production observability, monitoring, and health intelligence for Solana dApps.
+Covers RPC health checks, on-chain metrics collection, transaction success-rate
+monitoring, program upgrade tracking, structured logging, distributed tracing,
+alerting, and Grafana dashboards. Cross-domain skill spanning DevOps, data
+engineering, and Solana operations.
 user-invocable: true
 
 # Solana Observability Skill
@@ -148,19 +152,24 @@ Request ID (frontend) → RPC Call ID → Transaction Signature → Confirmed Bl
 ## Reference Index
 
 ### Infrastructure Monitoring
-- [infrastructure-monitoring.md](infrastructure-monitoring.md) — RPC health, slot tracking, rate limits, endpoint failover
+- [infrastructure-monitoring.md](infrastructure-monitoring.md) — RPC health, slot tracking,
+  rate limits, endpoint failover
 
 ### Program Monitoring
-- [program-monitoring.md](program-monitoring.md) — CU metering, account state tracking, instruction success rates, program upgrade detection
+- [program-monitoring.md](program-monitoring.md) — CU metering, account state tracking,
+  instruction success rates, program upgrade detection
 
 ### Application Observability
-- [application-observability.md](application-observability.md) — Frontend error tracking, wallet UX metrics, user journey funnels, client-side monitoring
+- [application-observability.md](application-observability.md) — Frontend error tracking,
+  wallet UX metrics, user journey funnels, client-side monitoring
 
 ### Alerting & Incident Response
-- [alerting.md](alerting.md) — Alert rules, severity routing, runbooks, PagerDuty/Discord/Slack integration, escalation policies
+- [alerting.md](alerting.md) — Alert rules, severity routing, runbooks,
+  PagerDuty/Discord/Slack integration, escalation policies
 
 ### Logging & Tracing
-- [logging-tracing.md](logging-tracing.md) — Structured logging, trace correlation, OpenTelemetry setup, Solana semantic conventions
+- [logging-tracing.md](logging-tracing.md) — Structured logging, trace correlation,
+  OpenTelemetry setup, Solana semantic conventions
 
 ### Dashboards & Visualization
 - [dashboards.md](dashboards.md) — Grafana JSON dashboards, React real-time components, Prometheus queries, CU optimization heatmaps
@@ -229,3 +238,5 @@ This skill uses progressive disclosure:
 - **Resource file** — Loaded only when external tools/services are referenced
 
 Agents reference these files rather than duplicating content. Cross-layer correlation guidance stays in this hub file.
+
+

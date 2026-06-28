@@ -29,3 +29,5 @@ sum(rate(solana_transaction_total{status="failed"}[5m])) / clamp_min(sum(rate(so
 - Success rate returns above 99.5% or protocol SLO for 15 minutes.
 - Failure class is understood and mitigated.
 - Post-incident monitoring gap is filed if detection was late.
+
+

@@ -284,10 +284,10 @@ AI anomaly analysis must include:
 
 - Use read-only RPC connections for monitoring.
 - Never hardcode secrets or API-key-bearing RPC URLs in dashboards or client code.
-- Never expose Helius/QuickNode keys in `NEXT_PUBLIC_*` variables.
+- Never expose Helius/QuickNode keys or other private credentials in client-side or public-facing configuration.
 - Never make wallet address, tx signature, or raw RPC URL a Prometheus label.
 - Never publish raw exploit details on public dashboards.
-- Never claim validation passed unless `promtool`, JSON/YAML checks, or relevant
+- Never claim validation passed unless promtool, JSON/YAML checks, or relevant
   tests actually ran.
 
 ## Anti-Patterns
@@ -428,4 +428,6 @@ Every production Grafana dashboard JSON must include:
 - SLOs and critical alerts must be reviewed quarterly or after any P0 incident.
 - Owners must be documented and reachable; rotate on-call ownership at least every 6 months.
 - Maintain a changelog for monitoring rule changes with reviewer and rationale.
+
+
 

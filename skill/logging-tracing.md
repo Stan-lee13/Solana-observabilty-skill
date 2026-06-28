@@ -42,7 +42,7 @@ export function clearLogContext(keys?: (keyof SolanaContext)[]) {
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? 'info',
-  
+
   // Redact sensitive fields
   redact: {
     paths: [
@@ -492,3 +492,5 @@ datasources:
           matcherRegex: '"trace_id":"([^"]+)"'
           url: 'http://jaeger:16686/trace/${__value.raw}'
 ```
+
+

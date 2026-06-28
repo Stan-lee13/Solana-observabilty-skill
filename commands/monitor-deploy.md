@@ -254,7 +254,7 @@ groups:
 
       - alert: ComputeUnitsSpiking
         expr: |
-          histogram_quantile(0.95, 
+          histogram_quantile(0.95,
             sum by (le, instruction) (rate(solana_instruction_cu_consumed_bucket[5m]))
           ) > 900000
         for: 10m
@@ -333,3 +333,5 @@ After running `/obs monitor-deploy`:
 [ ] Fee payer auto-refill automation set up (or calendar reminder)
 [ ] Program upgrade authority confirmed and documented
 ```
+
+
