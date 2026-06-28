@@ -1,0 +1,225 @@
+{
+  "title": "Solana Program Monitoring",
+  "uid": "solana-program",
+  "tags": ["solana", "program", "transactions"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "program_id",
+        "type": "query",
+        "label": "Program",
+        "datasource": "Prometheus",
+        "query": "label_values(solana_transaction_total, program_id)",
+        "current": {},
+        "refresh": 2
+      },
+      {
+        "name": "instruction",
+        "type": "query",
+        "label": "Instruction",
+        "datasource": "Prometheus",
+        "query": "label_values(solana_transaction_total{program_id=\"$program_id\"}, instruction)",
+        "current": {},
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Transaction Success Rate (5m)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "sum(rate(solana_transaction_total{status=\"success\",program_id=~\"$program_id\"}[5m])) / clamp_min(sum(rate(solana_transaction_total{program_id=~\"$program_id\"}[5m])), 1)",
+        "legendFormat": "Success Rate"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 0.95, "color": "yellow" },
+              { "value": 0.995, "color": "green" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/transaction-success-rate-low.md" }]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Transaction Rate (TPS)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{
+        "expr": "sum(rate(solana_transaction_total{program_id=~\"$program_id\"}[1m]))",
+        "legendFormat": "TPS"
+      }],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "decimals": 2 }
+      }
+    },
+    {
+      "id": 3,
+      "title": "P95 Confirmation Latency",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, sum(rate(solana_transaction_confirmation_seconds_bucket{program_id=~\"$program_id\"}[5m])) by (le))",
+        "legendFormat": "P95 Latency"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 5, "color": "yellow" },
+              { "value": 15, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "SLO Error Budget Remaining",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{
+        "expr": "1 - (sum(rate(solana_transaction_total{status=\"failed\",program_id=~\"$program_id\"}[7d])) / clamp_min(sum(rate(solana_transaction_total{program_id=~\"$program_id\"}[7d])), 1)) / 0.005",
+        "legendFormat": "Error Budget"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 0.25, "color": "yellow" },
+              { "value": 0.5, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Transaction Success Rate Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "expr": "sum(rate(solana_transaction_total{status=\"success\",program_id=~\"$program_id\"}[5m])) / clamp_min(sum(rate(solana_transaction_total{program_id=~\"$program_id\"}[5m])), 1)",
+          "legendFormat": "Success Rate"
+        },
+        {
+          "expr": "0.995",
+          "legendFormat": "SLO (99.5%)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 0.995, "color": "green" }
+            ]
+          }
+        },
+        "overrides": [{ "matcher": { "id": "byName", "options": "SLO (99.5%)" }, "properties": [{ "id": "custom.lineStyle", "value": { "dash": [10, 10] } }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }]
+      }
+    },
+    {
+      "id": 6,
+      "title": "Failures by Instruction",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [{
+        "expr": "sum by (instruction) (rate(solana_transaction_total{status=\"failed\",program_id=~\"$program_id\",instruction=~\"$instruction\"}[5m]))",
+        "legendFormat": "{{ instruction }}"
+      }],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "lineWidth": 1 } }
+      }
+    },
+    {
+      "id": 7,
+      "title": "CU Usage by Instruction (P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, instruction) (rate(solana_instruction_compute_units_bucket{program_id=~\"$program_id\",instruction=~\"$instruction\"}[5m])))",
+          "legendFormat": "{{ instruction }} P95"
+        },
+        {
+          "expr": "1200000",
+          "legendFormat": "CU Hard Limit"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 1 } },
+        "overrides": [{ "matcher": { "id": "byName", "options": "CU Hard Limit" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "custom.lineStyle", "value": { "dash": [10, 10] } }] }]
+      }
+    },
+    {
+      "id": 8,
+      "title": "Errors by Class",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 20 },
+      "targets": [{
+        "expr": "sum by (error_class) (increase(solana_transaction_total{status=\"failed\",program_id=~\"$program_id\"}[1h]))",
+        "legendFormat": "{{ error_class }}"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "Fee Payer Balance (SOL)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 20 },
+      "targets": [{
+        "expr": "solana_fee_payer_balance_sol",
+        "legendFormat": "{{ alias }}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 0.5, "color": "yellow" },
+              { "value": 2, "color": "green" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/fee-payer-low.md" }]
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Program Upgrade Events",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 20 },
+      "targets": [{
+        "expr": "increase(solana_program_upgrade_detected_total{program_id=~\"$program_id\"}[5m]) > 0",
+        "legendFormat": "Upgrade detected"
+      }]
+    }
+  ]
+}
