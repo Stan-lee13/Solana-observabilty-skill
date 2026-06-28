@@ -1,20 +1,75 @@
+# =============================================================================
+# prometheus.yml — Solana Observability Stack
+# =============================================================================
+# Copy-pasteable production configuration.
+# All sensitive values (API keys, bearer tokens) must use file-based secrets
+# or environment variable expansion — never hardcoded in this file.
+# =============================================================================
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
-  external_labels:
-    cluster: "solana-mainnet"
+  scrape_timeout: 10s
 
+  # External labels are attached to all metrics and alerts
+  # Set these to match your environment
+  external_labels:
+    cluster: "${SOLANA_CLUSTER:-solana-mainnet}"
+    environment: "${ENV:-production}"
+    region: "${REGION:-us-east}"
+
+# Alert rules file
 rule_files:
   - "alerts.yml"
 
-scrape_configs:
-  - job_name: "solana-exporter"
-    static_configs:
-      - targets: ["solana-exporter:3001"]
-    metrics_path: "/metrics"
-    scrape_interval: 15s
-
+# Alertmanager configuration
+# Uncomment and configure if using the alertmanager Docker Compose profile
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []  # Add alertmanager:9093 if using Alertmanager
+        - targets: []
+          # Uncomment to enable:
+          # - targets: ["alertmanager:9093"]
+      # scheme: http
+      # timeout: 10s
+      # api_version: v2
+
+scrape_configs:
+  # ── Solana custom exporter ─────────────────────────────────────────────────
+  - job_name: "solana-exporter"
+    static_configs:
+      - targets: ["solana-exporter:3001"]
+        labels:
+          service: "solana-exporter"
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    # Uncomment for bearer token auth if exporter is exposed externally:
+    # authorization:
+    #   credentials_file: /etc/prometheus/secrets/exporter-token
+
+  # ── Prometheus self-monitoring ─────────────────────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: "prometheus"
+    scrape_interval: 30s
+
+  # ── Grafana self-monitoring (optional) ────────────────────────────────────
+  - job_name: "grafana"
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels:
+          service: "grafana"
+    metrics_path: "/metrics"
+    scrape_interval: 60s
+
+# ── Storage tuning notes ───────────────────────────────────────────────────
+# Retention is set via CLI flags in docker-compose.yml:
+#   --storage.tsdb.retention.time=30d
+#   --storage.tsdb.retention.size=10GB
+#
+# For high-cardinality environments (>100 programs, >1000 nodes):
+#   Increase retention.size to 50GB
+#   Consider remote_write to Grafana Cloud or Thanos for long-term storage
