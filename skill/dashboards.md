@@ -415,7 +415,7 @@ export function LogStream({ filter }: { filter?: string }) {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(`wss://your-log-aggregator.com/stream?filter=${filter ?? ''}`);
+    const ws = new WebSocket(`wss://log-aggregator.example.com/stream?filter=${filter ?? ''}`);
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
@@ -695,5 +695,3 @@ datasources:
       cacheLevel: 'High'
     secureJsonData: {}
 ```
-
-

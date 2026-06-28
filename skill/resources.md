@@ -42,11 +42,11 @@ Principles:
 
 | Provider | Enhanced RPC | Webhooks | gRPC/Streams | Status Page | Best Fit | Production Caveats |
 |---|---|---|---|---|---|---|
-| Helius | Yes | Strong | Limited/partner | https://status.helius.xyz/ | webhooks, enhanced tx data | protect API keys |
-| QuickNode | Yes | Streams | Stream Connect | https://status.quicknode.com/ | multi-chain ops, gRPC | quota and add-on costs |
-| Triton | Specialist | Limited | Yellowstone | https://status.triton.one/ | low-latency Solana infra | usually advanced teams |
-| Syndica | Yes | Bespoke | Available | https://status.syndica.io/ | Solana-native indexing | verify product fit |
-| Alchemy | Yes | Notify | Limited | https://status.alchemy.com/ | broad SaaS reliability | feature parity varies |
+| Helius | Yes | Strong | Limited/partner | [status](https://status.helius.xyz/) | webhooks, enhanced tx data | protect API keys |
+| QuickNode | Yes | Streams | Stream Connect | [status](https://status.quicknode.com/) | multi-chain ops, gRPC | quota and add-on costs |
+| Triton | Specialist | Limited | Yellowstone | [status](https://status.triton.one/) | low-latency Solana infra | usually advanced teams |
+| Syndica | Yes | Bespoke | Available | [status](https://status.syndica.io/) | Solana-native indexing | verify product fit |
+| Alchemy | Yes | Notify | Limited | [status](https://status.alchemy.com/) | broad SaaS reliability | feature parity varies |
 | Public RPC | No | No | No | Solana status | fallback/canary only | rate limits, no SLA |
 
 Provider selection checklist:
@@ -399,6 +399,7 @@ Add these templates to PR descriptions when touching observability resources:
 ## Failure Recovery Playbooks
 
 Keep concise playbooks for:
+
 - RPC provider failover
 - Fee payer exhaustion
 - Indexer lag > threshold
@@ -416,6 +417,3 @@ Each playbook must include `detection -> containment -> mitigation -> recovery -
 
 - How to add a new SLI: create Prometheus rule for numerator/denominator, create Grafana panel with SLO metadata, add alert with `runbook_url`.
 - How to onboard a new RPC provider: add to exporter config, add endpoint alias, run synthetic checks, validate against secondary provider.
-
-
-

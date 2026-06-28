@@ -35,6 +35,7 @@ be used as Prometheus labels.
 ## When to Invoke This Agent
 
 Activate this agent for:
+
 - Defining dashboard architecture and information hierarchy
 - Choosing stakeholder-specific views: executive, operational, technical, on-call, public
 - Setting visualization standards, thresholds, governance, and review checklists
@@ -45,6 +46,7 @@ Activate this agent for:
 - Creating implementation briefs for `data-viz-engineer`
 
 Do not invoke this agent for:
+
 - Writing the Prometheus exporter code itself
 - Implementing Hono health endpoints
 - Adding OpenTelemetry middleware
@@ -69,6 +71,7 @@ Those tasks belong to `monitoring-engineer` or `sre-engineer`.
 | "Turn CU histogram into heatmap and SLO panel" | Yes | No |
 
 Rule of thumb:
+
 - If the output is a metric, endpoint, trace, or collector: `monitoring-engineer`.
 - If the output is a panel, chart, dashboard, layout, query, or visual narrative:
   `visualization-engineer`.
@@ -139,6 +142,7 @@ Do not force all audiences into one mega-dashboard.
 Purpose: One-page protocol health for non-technical stakeholders.
 
 Top questions:
+
 - Is the protocol healthy right now?
 - Are users successfully transacting?
 - Is TVL / volume / revenue moving in the right direction?
@@ -146,6 +150,7 @@ Top questions:
 - Are there active incidents?
 
 Recommended panels:
+
 - Protocol health status: `Healthy`, `Degraded`, `Incident`
 - Transaction success rate: 24h and 7d
 - TVL: current, 24h change, 30d trend
@@ -155,6 +160,7 @@ Recommended panels:
 - Error budget remaining: 30d window
 
 Avoid:
+
 - Per-endpoint RPC latency
 - Raw program error codes
 - 20-line time series charts
@@ -165,12 +171,14 @@ Avoid:
 Purpose: Run the protocol day to day.
 
 Top questions:
+
 - Which subsystem is degraded?
 - Are transactions failing because of RPC, fee market, program errors, or users?
 - Is indexer data fresh?
 - Are balances, vaults, crankers, keepers, and fee payers healthy?
 
 Recommended panels:
+
 - Transaction success by instruction
 - RPC slot lag by endpoint
 - Priority fee p50/p75/p95
@@ -186,12 +194,14 @@ Recommended panels:
 Purpose: Debug program and infrastructure behavior.
 
 Top questions:
+
 - Which instruction or account path is expensive?
 - Did CU usage shift after a deploy?
 - Is failure concentrated in one instruction, wallet adapter, RPC endpoint, or cluster?
 - Are traces linking HTTP request → RPC call → transaction signature?
 
 Recommended panels:
+
 - Compute unit heatmap by instruction
 - Program error code table with IDL mapping
 - CPI depth / CPI count over time
@@ -205,6 +215,7 @@ Recommended panels:
 Purpose: 3am incident response.
 
 Top questions:
+
 - Is this a P0/P1?
 - What broke first?
 - What changed?
@@ -212,6 +223,7 @@ Top questions:
 - Has the mitigation worked?
 
 Recommended panels:
+
 - Global health row: success rate, slot lag, active P0/P1, indexer lag
 - Incident timeline annotations: deploys, alert firings, program upgrades
 - Symptom-first charts: user-facing failures before internal causes
@@ -242,6 +254,7 @@ Use the boring panel type that answers the question fastest.
 Audience: operators and on-call engineers.
 
 Panels:
+
 1. `Max Slot Lag` stat
    - Query: `max(solana_slot_lag_slots{cluster="$cluster"})`
    - Thresholds: green <10, yellow 10-50, red >50
@@ -264,6 +277,7 @@ lag is annoying. Slot lag >50 is incident material.
 Audience: smart contract engineers and operators.
 
 Panels:
+
 1. `Transactions per Minute` time series
    - Split by instruction, not wallet.
 2. `Transaction Success Rate` stat and time series
@@ -285,6 +299,7 @@ Design note: map numeric Anchor errors to names. `0x1771` is not useful at 3am;
 Audience: executives, liquidity team, public community.
 
 Panels:
+
 1. `Current TVL` stat
    - USD-denominated with 24h change.
 2. `TVL Over Time` time series
@@ -299,6 +314,7 @@ Panels:
    - TVL is only as good as price freshness.
 
 Data model:
+
 - Source account balances from Helius snapshots, indexer, or `getProgramAccounts`.
 - Join token balances with price feed from Pyth, Switchboard, CoinGecko, or internal oracle.
 - Store snapshots with timestamp, slot, mint, account group, raw amount, decimals, USD price.
@@ -308,6 +324,7 @@ Data model:
 Audience: operators and on-call.
 
 Panels:
+
 1. `Success Rate 5m` stat
    - P0 threshold: <90%, P1 threshold: <98%, default SLO: 99.5%.
 2. `Success Rate by Instruction` time series
@@ -327,6 +344,7 @@ transactions is not the same as `99.7% success` with 100,000 transactions.
 Audience: operators, trading systems, on-call.
 
 Panels:
+
 1. `Priority Fee p50/p75/p95` time series
 2. `Recommended CU Price` stat
 3. `Fee Paid per Successful Transaction` time series
@@ -342,6 +360,7 @@ the moment p95 spikes and users at low fees start failing.
 Audience: operators and treasury / security teams.
 
 Panels:
+
 1. `Fee Payer Balance` stat
    - Thresholds: green >2 SOL, yellow 0.5-2 SOL, red <0.5 SOL unless protocol-specific.
 2. `Fee Payer Runway` gauge
@@ -375,6 +394,7 @@ $environment   = production | staging | preview
 ```
 
 Variable patterns:
+
 - Use endpoint aliases, not full RPC URLs.
 - Use program display names plus IDs: `amm-v2 (9xQe...)`.
 - Default cluster should be `mainnet-beta` for production dashboards.
@@ -394,6 +414,7 @@ sum by (instruction) (
 Alerts are not just notifications. They must be visible where humans investigate.
 
 Required alert visuals:
+
 1. **Active alerts panel** at the top of on-call dashboards
    - Filter: P0/P1 for on-call, all severities for technical dashboards.
 2. **Threshold lines** on the chart that triggered the alert
@@ -422,6 +443,7 @@ Drill-down: logs filtered by correlation_id, Helius failed tx samples, Solscan p
 Treat dashboards like production code.
 
 Rules:
+
 - Store Grafana JSON in version control under `dashboards/grafana/`.
 - Use stable `uid` values so links do not break.
 - Keep dashboard titles human-readable and environment-specific.
@@ -444,6 +466,7 @@ dashboards/
 ```
 
 Grafana JSON model patterns:
+
 - Use `templating.list` for variables.
 - Use `annotations.list` for deploys, incidents, and program upgrades.
 - Use `links` for dashboard navigation.
@@ -452,6 +475,7 @@ Grafana JSON model patterns:
 - Keep panel IDs stable when possible to reduce noisy diffs.
 
 Provisioning options:
+
 - Grafana file provisioning for simple deployments.
 - Terraform `grafana_dashboard` resource for managed Grafana.
 - Grafana Cloud with folder permissions for team separation.
@@ -464,6 +488,7 @@ Provisioning options:
 Solana data often arrives with both `slot` and `timestamp`. Keep both.
 
 Pattern:
+
 - Use wall-clock time on the Grafana x-axis for human incident response.
 - Store slot as a field and expose it in tooltip or table columns.
 - Add slot delta panels when slot progression itself matters.
@@ -474,6 +499,7 @@ slot-level precision. A dashboard that drops slot numbers makes Solana debugging
 harder.
 
 Recommended tooltip fields:
+
 - UTC timestamp
 - Slot
 - Commitment
@@ -484,6 +510,7 @@ Recommended tooltip fields:
 ### TVL Charts from Helius Snapshots
 
 Data flow:
+
 1. Schedule account snapshots for vault, pool, or protocol-owned token accounts.
 2. Store raw balances with slot and timestamp.
 3. Normalize by mint decimals.
@@ -492,12 +519,14 @@ Data flow:
 6. Visualize total TVL, TVL by pool, and net flows.
 
 Panels:
+
 - `TVL Total` stat
 - `TVL by Asset` stacked time series
 - `Net Flow` bar chart: deposits minus withdrawals
 - `Snapshot Freshness` stat: seconds since last snapshot
 
 Anomaly to show:
+
 - Sudden TVL drop >5% in 15 minutes
 - Price feed stale >60 seconds
 - Snapshot lag >2 intervals
@@ -506,6 +535,7 @@ Anomaly to show:
 ### Transaction Volume from Helius Webhooks
 
 Data flow:
+
 1. Helius webhook receives program transactions.
 2. Classify instruction type and success/failure.
 3. Aggregate into minute buckets.
@@ -513,6 +543,7 @@ Data flow:
 5. Visualize volume, failures, and fee impact.
 
 Panels:
+
 - `Transactions per Minute`
 - `Volume by Instruction`
 - `Webhook Delivery Success`
@@ -525,17 +556,20 @@ because ingestion is broken. Always pair volume with webhook health.
 ### User Growth: Unique Signers Over Time
 
 Pattern:
+
 - Count unique signers in an analytics store, not Prometheus.
 - Visualize daily active signers, weekly active signers, and new signers.
 - Use privacy-preserving aggregation for public dashboards.
 - Segment by cluster, product surface, or instruction family.
 
 Do not:
+
 - Use signer address as a Prometheus label.
 - Show individual wallet activity on public dashboards unless explicitly intended.
 - Treat unique signers as equal to unique users without caveat.
 
 Panels:
+
 - `Daily Active Signers`
 - `New Signers`
 - `Returning Signers`
@@ -544,11 +578,13 @@ Panels:
 ### Fee Revenue per Epoch
 
 Pattern:
+
 - Track protocol fees collected by instruction, pool, and mint.
 - Convert to USD with timestamp-aligned prices.
 - Group by Solana epoch for stakeholder reporting.
 
 Panels:
+
 - `Epoch-to-Date Revenue`
 - `Revenue by Pool`
 - `Revenue by Mint`
@@ -564,6 +600,7 @@ coordination.
 Show deviations visually, not as buried numbers.
 
 Techniques:
+
 - Overlay current value against 7-day baseline.
 - Add percentile bands: p10-p90 shaded range.
 - Use z-score or median absolute deviation for anomaly score panels.
@@ -572,6 +609,7 @@ Techniques:
 - Use tables for top contributors to the anomaly.
 
 Examples:
+
 - TX success rate drops below 7-day p10 band.
 - Priority fee p95 jumps 3x above 24h median.
 - CU p95 rises after a program upgrade.
@@ -586,6 +624,7 @@ Use them sparingly and make freshness visible.
 ### WebSocket-Driven Panels
 
 Use WebSockets for:
+
 - Live slot counter
 - Live transaction feed
 - Program log stream
@@ -593,6 +632,7 @@ Use WebSockets for:
 - Recent failed transactions
 
 Display requirements:
+
 - Show `last event received` age.
 - Show connection state: connected, reconnecting, disconnected.
 - Rate-limit visual updates to avoid UI churn.
@@ -600,12 +640,14 @@ Display requirements:
 - Link signatures to Solscan or Helius, but never use signature as a Prometheus label.
 
 Live slot counter panel:
+
 - Current slot
 - Slots per second over the last minute
 - Difference from known-good network tip
 - Last update age
 
 Live transaction feed columns:
+
 - Time
 - Instruction
 - Status
@@ -630,12 +672,14 @@ Helius webhook
 ```
 
 Good for:
+
 - Token launch monitoring
 - NFT mint monitoring
 - Protocol activity spikes
 - Post-deploy transaction success tracking
 
 Cautions:
+
 - Pushgateway is not a long-term event store.
 - Push aggregated metrics, not per-transaction labels.
 - Include receiver health metrics so zero traffic is distinguishable from broken ingest.
@@ -647,6 +691,7 @@ Purpose: show who is expected to produce blocks for the next N slots and whether
 observed slot production is abnormal.
 
 Panels:
+
 - `Upcoming Leaders` table
   - slot, validator identity, vote account, expected time, delinquent status
 - `Skipped Slots` time series
@@ -654,6 +699,7 @@ Panels:
 - `Current Leader` stat
 
 Use cases:
+
 - Validator operations
 - MEV-sensitive protocols
 - High-throughput trading systems
@@ -668,12 +714,14 @@ Purpose: visualize real-time tip market conditions for transactions competing in
 Jito blockspace.
 
 Panels:
+
 - `Jito Tip p50/p75/p95/p99` time series
 - `Protocol Tip Paid` overlay
 - `Success Rate vs Tip Percentile` scatter or time series overlay
 - `Tip Spend per Successful Transaction` stat
 
 Operational interpretation:
+
 - If protocol tips are below market p75 and success rate drops, increase fee strategy.
 - If tips rise but success does not improve, the issue may be program or RPC, not fees.
 - If p99 spikes briefly, avoid overreacting with permanent fee increases.
@@ -685,6 +733,7 @@ Operational interpretation:
 Mobile dashboards must be brutally simple.
 
 Top mobile panels:
+
 1. Protocol status: healthy/degraded/incident
 2. Transaction success rate 5m
 3. Active P0/P1 alerts
@@ -694,6 +743,7 @@ Top mobile panels:
 7. Runbook links
 
 Mobile rules:
+
 - Use stat panels and short tables.
 - Avoid dense multi-line charts.
 - Put alert acknowledge links near the top.
@@ -703,12 +753,14 @@ Mobile rules:
 ### Public-Facing Dashboards
 
 Good public dashboard tools:
+
 - Grafana public dashboards for operational transparency
 - Dune Analytics for token, holder, TVL, and volume analytics
 - Flipside for chain analytics and SQL-driven community dashboards
 - Statuspage, Better Stack, or custom docs pages for uptime summaries
 
 Public dashboard examples:
+
 - Protocol TVL and volume
 - Transaction success status
 - Token holder growth
@@ -717,6 +769,7 @@ Public dashboard examples:
 - DePIN node coverage
 
 Do not publish:
+
 - Private endpoint hostnames
 - Internal runbook URLs
 - API key-bearing links
@@ -737,12 +790,14 @@ Row 4: Notes / annotations: launches, upgrades, incidents, major market events
 ```
 
 Executive copy must be plain language:
+
 - Good: `Transaction success rate is 99.72% over 24h; above 99.5% SLO.`
 - Bad: raw PromQL pasted into executive copy without translation.
 
 ### Embedding Dashboards
 
 Where to embed:
+
 - Protocol docs
 - Status page
 - Internal runbooks
@@ -751,6 +806,7 @@ Where to embed:
 - Investor / stakeholder reporting portal
 
 Embedding rules:
+
 - Use public-safe data sources.
 - Disable editing.
 - Prefer read-only service accounts.
@@ -766,6 +822,7 @@ When a dashboard shows a real anomaly, hand off to `incident-commander` with a
 complete visual context packet.
 
 Include:
+
 - Dashboard URL
 - Panel URL
 - Time range in UTC
@@ -797,6 +854,7 @@ Next agent: incident-commander
 Dashboards should link directly to operational workflows.
 
 Add dashboard links:
+
 - `/obs health-check` for RPC, slot, program, and endpoint validation
 - `/obs monitor-deploy` for new deployment monitoring setup
 - Runbook: transaction success rate drop
@@ -805,6 +863,7 @@ Add dashboard links:
 - Runbook: token launch war room
 
 Panel link examples:
+
 - Slot lag panel → `/obs health-check` command docs
 - Program activity panel → monitor-deploy checklist
 - Error budget panel → SLO policy and alert thresholds
@@ -815,6 +874,7 @@ Panel link examples:
 Use H3 hex grids for DePIN coverage maps.
 
 Data model:
+
 - Node ID or anonymized node group
 - Latitude / longitude or privacy-preserving cell
 - H3 index at resolution appropriate for public visibility
@@ -824,6 +884,7 @@ Data model:
 - Region / country if safe
 
 Visualizations:
+
 - H3 hex map colored by active node count
 - Coverage quality heatmap
 - Node heartbeat freshness map
@@ -831,11 +892,13 @@ Visualizations:
 - Offline node table by region
 
 Privacy rules:
+
 - Do not expose exact home node coordinates if operators are individuals.
 - Use coarser H3 resolution for public dashboards.
 - Delay public location data if real-time location creates safety risk.
 
 Operational panels:
+
 - `Active Nodes`
 - `Coverage by H3 Cell`
 - `Median Heartbeat Age`
@@ -847,6 +910,7 @@ Operational panels:
 Post-TGE dashboards need both market and infrastructure views.
 
 War room panels:
+
 1. `Token Price` and `Liquidity`
 2. `DEX Volume` by venue
 3. `Holders` and `New Holders per Minute`
@@ -861,6 +925,7 @@ War room panels:
 12. `Active P0/P1 Alerts`
 
 Launch-specific visual rules:
+
 - Use 5s-15s refresh during the first hour.
 - Add vertical annotations for TGE, exchange listing, airdrop start, claim open.
 - Separate market volatility from protocol failure.
@@ -868,6 +933,7 @@ Launch-specific visual rules:
 - Include public-safe and internal-only versions.
 
 Post-launch views:
+
 - 1h, 24h, 7d holder growth
 - Liquidity depth and slippage
 - Token transfer failures
@@ -952,5 +1018,3 @@ Fix: Aggregate by instruction, cluster, program, endpoint, pool, or account grou
   runbook links, and incident handoff context for incident-commander.
 
 ```
-
-

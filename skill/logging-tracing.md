@@ -492,5 +492,3 @@ datasources:
           matcherRegex: '"trace_id":"([^"]+)"'
           url: 'http://jaeger:16686/trace/${__value.raw}'
 ```
-
-

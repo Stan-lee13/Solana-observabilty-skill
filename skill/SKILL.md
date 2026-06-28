@@ -20,6 +20,7 @@ Production observability, monitoring, and operational intelligence for Solana dA
 Use this skill when the user asks for:
 
 ### Health Checks & Uptime Monitoring
+
 - RPC endpoint health monitoring and failover
 - Program account state validation
 - Frontend dApp health checks
@@ -27,6 +28,7 @@ Use this skill when the user asks for:
 - Circuit breaker patterns for Solana connections
 
 ### Metrics Collection
+
 - Transaction success rate and latency tracking
 - Compute unit (CU) usage monitoring and optimization
 - Account data size growth tracking
@@ -35,6 +37,7 @@ Use this skill when the user asks for:
 - Token balance and TVL movement tracking
 
 ### Alerting & Incident Response
+
 - On-call alerting for failed transactions or program errors
 - Anomaly detection for unusual on-chain activity
 - Program upgrade notifications and security alerts
@@ -42,12 +45,14 @@ Use this skill when the user asks for:
 - Runbook-driven incident response for Solana ops
 
 ### Structured Logging & Tracing
+
 - Correlating off-chain actions with on-chain transactions (signature tracing)
 - Structured logging for Solana program instructions
 - Distributed tracing across RPC → Program → Indexer → Frontend
 - Error classification and retry tracking
 
 ### Dashboards & Visualization
+
 - Grafana dashboards for Solana dApp metrics
 - Real-time on-chain data visualization
 - CU optimization heatmaps
@@ -55,6 +60,7 @@ Use this skill when the user asks for:
 - Custom metric exporters and Prometheus integration
 
 ### Program Upgrade & Security Monitoring
+
 - Monitoring program deployments and upgrades
 - Detecting unauthorized authority changes
 - Instruction discriminator drift detection
@@ -120,18 +126,21 @@ Use this skill when the user asks for:
 ### 3. Apply Layer-Specific Patterns
 
 **RPC / Infrastructure:**
+
 - Multi-endpoint health checks with weighted failover
 - Slot lag and block time monitoring
 - Request/response latency histograms
 - Rate limit and quota tracking per endpoint
 
 **On-Chain / Program:**
+
 - Instruction-level CU metering and per-instruction success rates
 - Account data change tracking (pre/post state diff)
 - PDA space utilization alerts (approaching rent-exemption limits)
 - Transaction signature confirmation time distributions
 
 **Application / Frontend:**
+
 - Wallet adapter error classification and rates
 - Transaction signing to confirmation latency
 - User journey funnel: connect → sign → confirm → notify
@@ -140,11 +149,13 @@ Use this skill when the user asks for:
 ### 4. Correlate Across Layers
 
 Always connect signals across layers:
+
 - Frontend error spike → RPC degradation? → Slot lag increase? → Network issue?
 - Transaction failure increase → Program upgrade? → IDL change? → Breaking change?
 - CU usage spike → New instruction pattern? → Account bloat? → Cost increase?
 
 Use correlation IDs:
+
 ```
 Request ID (frontend) → RPC Call ID → Transaction Signature → Confirmed Block → Indexer Event
 ```
@@ -152,32 +163,40 @@ Request ID (frontend) → RPC Call ID → Transaction Signature → Confirmed Bl
 ## Reference Index
 
 ### Infrastructure Monitoring
+
 - [infrastructure-monitoring.md](infrastructure-monitoring.md) — RPC health, slot tracking,
   rate limits, endpoint failover
 
 ### Program Monitoring
+
 - [program-monitoring.md](program-monitoring.md) — CU metering, account state tracking,
   instruction success rates, program upgrade detection
 
 ### Application Observability
+
 - [application-observability.md](application-observability.md) — Frontend error tracking,
   wallet UX metrics, user journey funnels, client-side monitoring
 
 ### Alerting & Incident Response
+
 - [alerting.md](alerting.md) — Alert rules, severity routing, runbooks,
   PagerDuty/Discord/Slack integration, escalation policies
 
 ### Logging & Tracing
+
 - [logging-tracing.md](logging-tracing.md) — Structured logging, trace correlation,
   OpenTelemetry setup, Solana semantic conventions
 
 ### Dashboards & Visualization
+
 - [dashboards.md](dashboards.md) — Grafana JSON dashboards, React real-time components, Prometheus queries, CU optimization heatmaps
 
 ### Program CU Profiling
+
 - [program-profiling.md](program-profiling.md) — Per-instruction CU budgets, regression gates, production CU forensics
 
 ### Resources
+
 - [resources.md](resources.md) — Curated tools, libraries, services, and reference links for Solana observability
 
 ## Anti-Patterns (What NOT To Do)
@@ -233,10 +252,9 @@ git clone https://github.com/Stan-lee13/Solana-observabilty-skill.git
 ## Progressive Loading Notes
 
 This skill uses progressive disclosure:
+
 - **SKILL.md** (this file) — Overview, routing table, stack decisions
 - **Layer files** — Loaded only when relevant layer is discussed
 - **Resource file** — Loaded only when external tools/services are referenced
 
 Agents reference these files rather than duplicating content. Cross-layer correlation guidance stays in this hub file.
-
-

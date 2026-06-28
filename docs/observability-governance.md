@@ -41,5 +41,3 @@ This document defines ownership, change control, deprecation, and review process
 ***
 
 This governance file should be included in onboarding and used by reviewers to gate observability-related changes.
-
-

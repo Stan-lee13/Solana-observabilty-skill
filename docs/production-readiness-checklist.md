@@ -90,5 +90,3 @@ This document captures a comprehensive checklist to validate that observability,
 ---
 
 Use this checklist as a PR gate for observability-related changes and include a short checklist in PR descriptions for any alerts, dashboards, or monitoring code changes.
-
-

@@ -396,7 +396,8 @@ Threshold: `{threshold}%`
      -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
    ```
 
-3. **Check recent program changes**
+1. **Check recent program changes**
+
    ```bash
    # Was the program upgraded recently?
    solana program show $PROGRAM_ID --url $RPC_URL
@@ -420,6 +421,7 @@ Threshold: `{threshold}%`
 ### Cause: Program was upgraded with breaking change
 
 **Fix:**
+
 1. Identify the breaking change
 2. If unintended: freeze program, redeploy previous version
 3. If intended: update client IDL, notify users
@@ -427,6 +429,7 @@ Threshold: `{threshold}%`
 ### Cause: RPC endpoint degraded
 
 **Fix:**
+
 1. Switch to backup RPC
 2. Update frontend RPC config
 3. Contact RPC provider
@@ -434,6 +437,7 @@ Threshold: `{threshold}%`
 ### Cause: Fee market spike
 
 **Fix:**
+
 1. Increase priority fees in client
 2. Check `/fee-market` dashboard for recommendations
 3. Consider Jito bundles for critical transactions
@@ -441,6 +445,7 @@ Threshold: `{threshold}%`
 ### Cause: Account data bloat
 
 **Fix:**
+
 1. Identify growing accounts
 2. Implement account reaping/rent collection
 3. Increase rent exemption if needed
@@ -448,6 +453,7 @@ Threshold: `{threshold}%`
 ## Escalation
 
 If not resolved in 15 minutes:
+
 - P0: Escalate to security team
 - P1: Page engineering lead
 - Include: diagnosis summary, attempted fixes, current state
@@ -457,6 +463,7 @@ If not resolved in 15 minutes:
 1. Document root cause in incident tracker
 2. Update runbook if needed
 3. Schedule follow-up for preventive measures
+
 ```
 
 ## Auto-Remediation Actions
@@ -615,5 +622,3 @@ class AlertDeduplicator {
   }
 }
 ```
-
-

@@ -1,6 +1,7 @@
 {
   "name": "solana-observability-exporter",
   "version": "1.0.0",
+  "type": "module",
   "description": "Prometheus exporter for Solana dApp infrastructure",
   "main": "dist/index.js",
   "scripts": {

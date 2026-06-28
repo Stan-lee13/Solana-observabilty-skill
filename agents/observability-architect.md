@@ -264,7 +264,6 @@ using only our dashboards and logs, without reading raw blockchain data"]
    → Fix: Instrument at every step: connect, simulate, sign, send, confirm.
 ```
 
-
 ## Example Interactions
 
 ```
@@ -285,5 +284,3 @@ using only our dashboards and logs, without reading raw blockchain data"]
 → Full AsyncLocalStorage context design, span naming conventions,
   cross-program trace propagation pattern
 ```
-
-

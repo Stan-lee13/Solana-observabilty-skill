@@ -31,5 +31,3 @@ histogram_quantile(0.95, sum(rate(solana_rpc_request_duration_seconds_bucket[5m]
 - All production endpoints have slot lag <10 for 10 minutes.
 - p95 RPC latency returns below 1s or protocol baseline.
 - Transaction success rate returns above SLO.
-
-

@@ -131,5 +131,3 @@ solana-observability-skill/
 ---
 
 **Main skill entry**: [skill/SKILL.md](skill/SKILL.md)
-
-

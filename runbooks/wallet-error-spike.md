@@ -24,5 +24,3 @@ P2 for wallet adapter errors affecting a subset of users. P1 if claim, swap, or 
 - Wallet error rate returns to baseline.
 - Affected flow conversion recovers.
 - Safe-mode or warning banner is removed only after incident commander approval for security issues.
-
-

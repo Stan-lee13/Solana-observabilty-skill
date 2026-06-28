@@ -30,5 +30,3 @@ visibility, and data sources are approved.
 ## Output
 
 Return dashboard architecture, panel list, PromQL queries, and review checklist.
-
-

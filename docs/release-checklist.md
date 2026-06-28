@@ -45,5 +45,3 @@ Document changes to:
 - dashboard visibility
 - install path or deploy stack
 - external provider recommendations
-
-

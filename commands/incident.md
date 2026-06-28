@@ -33,5 +33,3 @@ Collect:
 ## Output
 
 Return severity, timeline, suspected blast radius, evidence, and next command.
-
-

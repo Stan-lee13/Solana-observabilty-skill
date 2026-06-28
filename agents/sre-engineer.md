@@ -12,6 +12,7 @@ You write Prometheus alerting rules, PagerDuty routing configs, Alertmanager YAM
 ## When to Use This Agent
 
 Activate for:
+
 - Writing Prometheus alert rules with correct thresholds
 - Building runbooks linked to specific alerts
 - Configuring PagerDuty / Discord / Slack alerting routing
@@ -209,6 +210,7 @@ receivers:
 ## Escalation
 
 If not resolved within [TIME]:
+
 - P0: call [NAME] at [NUMBER]
 - P1: message [SLACK_CHANNEL]
 
@@ -216,11 +218,13 @@ If not resolved within [TIME]:
 
 - File incident ticket in [SYSTEM]
 - Update this runbook if steps were wrong or missing
+
 ```
 
 ## Example Interactions
 
 ```
+
 "sre-engineer write alert rules for our program's transaction failure rate, threshold 2%"
 → Produces Prometheus YAML with correct PromQL, severity, for-duration, runbook link
 

@@ -9,15 +9,6 @@ import {
 } from "prom-client";
 import { Connection } from "@solana/web3.js";
 
-const PORT = Number.parseInt(process.env.PORT ?? "3001", 10);
-const CLUSTER = process.env.SOLANA_CLUSTER ?? "mainnet-beta";
-const SCRAPE_INTERVAL_MS =
-  Number.parseInt(process.env.SCRAPE_INTERVAL_SECONDS ?? "15", 10) * 1000;
-const PROGRAM_IDS = (process.env.PROGRAM_IDS ?? "")
-  .split(",")
-  .map((v) => v.trim())
-  .filter(Boolean);
-
 export type EndpointConfig = { alias: string; url: string };
 export type EndpointHealth = {
   endpoint: string;
@@ -44,17 +35,28 @@ export function parseProgramIds(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+export function normalizeRpcEndpoints(env: NodeJS.ProcessEnv): EndpointConfig[] {
+  const candidates: Array<{ alias: string; url: string }> = [
+    {
+      alias: env.HELIUS_RPC_ALIAS ?? "helius-primary",
+      url: env.HELIUS_RPC_URL ?? "https://api.mainnet-beta.solana.com",
+    },
+    {
+      alias: env.QUICKNODE_RPC_ALIAS ?? "quicknode-backup",
+      url: env.QUICKNODE_RPC_URL ?? "",
+    },
+  ];
+
+  return candidates
+    .map((endpoint) => ({
+      alias: endpoint.alias,
+      url: endpoint.url.trim(),
+    }))
+    .filter((endpoint) => endpoint.url.length > 0);
+}
+
 export function buildExporterConfig(env = process.env): ExporterConfig {
-  const rpcEndpoints: EndpointConfig[] = [
-  {
-    alias: env.HELIUS_RPC_ALIAS ?? "helius-primary",
-    url: env.HELIUS_RPC_URL ?? "https://api.mainnet-beta.solana.com",
-  },
-  {
-    alias: env.QUICKNODE_RPC_ALIAS ?? "quicknode-backup",
-    url: env.QUICKNODE_RPC_URL ?? "",
-  },
-  ].filter((endpoint) => endpoint.url.length > 0);
+  const rpcEndpoints = normalizeRpcEndpoints(env);
 
   return {
     port: Number.parseInt(env.PORT ?? "3001", 10),

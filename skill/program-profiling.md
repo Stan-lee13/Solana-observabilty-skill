@@ -14,6 +14,7 @@ The 1.2M CU limit is a hard ceiling. Hit it and your transaction fails — not d
 Most teams only discover their CU problem when a user files a bug report.
 
 **Common failure pattern:**
+
 1. Program works in testing (simple state, no load)
 2. Goes to mainnet with real accounts
 3. CU usage grows as accounts fill up (deserialization cost scales with account size)
@@ -250,6 +251,7 @@ jobs:
 When an instruction is too expensive, these patterns reduce cost:
 
 ### Pattern 1: Split Composite Instructions
+
 ```rust
 // ❌ One instruction doing 3 things = 3x CPI cost
 pub fn mint_stake_and_notify(ctx: Context<...>) -> Result<()> {
@@ -265,6 +267,7 @@ pub fn mint_stake_and_notify(ctx: Context<...>) -> Result<()> {
 ```
 
 ### Pattern 2: Lazy Account Initialization
+
 ```rust
 // ❌ Initialize + operate in one instruction (doubles account write CU)
 pub fn create_and_deposit(ctx: Context<...>, amount: u64) -> Result<()> {
@@ -278,6 +281,7 @@ pub fn create_and_deposit(ctx: Context<...>, amount: u64) -> Result<()> {
 ```
 
 ### Pattern 3: Reduce Account Deserialization
+
 ```rust
 // ❌ Loading a 1KB account just to read one field
 let full_state = &ctx.accounts.large_state; // Deserializes 1KB
@@ -384,5 +388,3 @@ Safety buffer (20%): ___ CU
 → Alert if > 80% consumed: ___ CU
 → Fail CI test if > baseline + 5%: ___ CU
 ```
-
-

@@ -8,5 +8,3 @@
 - Added missing `/obs` command documents for alert setup, dashboards, incidents, CU optimization, and tracing.
 - Added deploy alert rules, exporter Dockerfile, TypeScript configuration, and canonical metric names.
 - Added governance docs, security policy, release checklist, CI workflow, and runbooks.
-
-

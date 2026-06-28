@@ -39,7 +39,6 @@ Use this agent only after `visualization-engineer` has defined:
 
 If those decisions are missing, hand back to `visualization-engineer` before building artifacts.
 
-
 ## Implementation Principles
 
 ```

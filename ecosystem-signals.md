@@ -144,18 +144,26 @@ Actions:
 ## Signals Received from `solana-depin-builder-skill`
 
 ### `DEPIN_NODE_FLEET_DEPLOYED`
+
 Actions:
+
 - Add node uptime, heartbeat freshness, proof success, and reward dashboards.
 - Add H3 coverage maps if location data is safe to visualize.
 - Monitor oracle freshness and proof verification error rates.
 - Alert on silent cohorts, duplicated proofs, and impossible travel.
+
 ### `DEPIN_COVERAGE_MODEL_CHANGED`
+
 Actions:
+
 - Update dashboard definitions and alert thresholds.
 - Add deploy annotation for the scoring change.
 - Re-baseline anomaly detection.
+
 ---
+
 ## Alert Routing Table
+
 | Alert | Severity | Route To | Action |
 |---|---:|---|---|
 | Funds at risk or vault drain | P0 | incident-response | Run incident triage |
@@ -168,16 +176,22 @@ Actions:
 | DePIN node cohort silent >1 epoch | P2 | depin-builder | Load coverage verification |
 | Wallet adapter error spike | P2 | ux | Audit error-state UX |
 | Dashboard missing SLO | P3 | observability | Add panel and alert |
+
 ---
+
 ## Cross-Skill Queries
+
 ```text
 /query incident-response classify --program <PROGRAM_ID> --metric <METRIC> --severity <P0|P1>
 /query ux design-error-state --flow <FLOW> --error-class <ERROR> --retry-safe <yes|no|unknown>
 /query token-launch launch-monitoring --mint <MINT> --pool <POOL> --phase <pre-tge|tge|post-tge>
 /query depin node-anomaly --cohort <COHORT> --proof-type <PROOF> --epoch <EPOCH>
 ```
+
 ---
+
 ## Shared Vocabulary
+
 - **Epoch**: Solana epoch or protocol reward/accounting period.
 - **Proof**: Cryptographic or telemetry evidence submitted by a DePIN node.
 - **Stake**: Locked economic weight for rewards, security, or governance.
@@ -188,5 +202,3 @@ Actions:
 - **Indexer lag**: Delay from finalized chain state to queryable app state.
 - **TGE**: Token generation event: mint, claim, listing, and liquidity setup.
 - **Error budget**: Allowed failure budget for an SLO window.
-
-

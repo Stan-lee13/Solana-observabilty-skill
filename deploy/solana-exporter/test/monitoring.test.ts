@@ -4,8 +4,9 @@ import test from "node:test";
 import {
   buildExporterConfig,
   classifyError,
+  normalizeRpcEndpoints,
   parseProgramIds,
-} from "../index.js";
+} from "../index.ts";
 
 test("parseProgramIds trims and drops empty values", () => {
   assert.deepEqual(parseProgramIds("alpha, beta, , gamma ,, "), [
@@ -22,12 +23,29 @@ test("buildExporterConfig falls back to safe defaults", () => {
   assert.equal(config.cluster, "mainnet-beta");
   assert.equal(config.scrapeIntervalMs, 15_000);
   assert.deepEqual(config.programIds, []);
-  assert.equal(config.rpcEndpoints.length, 2);
+  assert.equal(config.rpcEndpoints.length, 1);
+});
+
+test("normalizeRpcEndpoints drops empty URLs and preserves aliases", () => {
+  const endpoints = normalizeRpcEndpoints({
+    HELIUS_RPC_ALIAS: "primary",
+    HELIUS_RPC_URL: "https://rpc.example.com",
+    QUICKNODE_RPC_ALIAS: "backup",
+    QUICKNODE_RPC_URL: "   ",
+  });
+
+  assert.deepEqual(endpoints, [{ alias: "primary", url: "https://rpc.example.com" }]);
 });
 
 test("classifyError keeps error classes bounded for alerting", () => {
-  assert.equal(classifyError(new Error("request timeout while fetching slot")), "timeout");
-  assert.equal(classifyError(new Error("rate limit exceeded by provider")), "rate_limited");
+  assert.equal(
+    classifyError(new Error("request timeout while fetching slot")),
+    "timeout",
+  );
+  assert.equal(
+    classifyError(new Error("rate limit exceeded by provider")),
+    "rate_limited",
+  );
   assert.equal(classifyError(new Error("fetch failed for endpoint")), "network");
   assert.equal(classifyError(new Error("unknown rpc failure")), "rpc_error");
 });

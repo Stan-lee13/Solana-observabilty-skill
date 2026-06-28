@@ -231,7 +231,7 @@ groups:
         labels: { severity: p1 }
         annotations:
           summary: "TX success rate {{ $value | humanizePercentage }} (SLO: 99.5%)"
-          runbook: "https://your-docs/runbooks/tx-failure"
+          runbook: "https://runbooks.example.com/tx-failure"
 
       - alert: RPCSlotLagHigh
         expr: max(solana_slot_lag_slots) > 50
@@ -324,8 +324,8 @@ export async function withSpan<T>(
 After running `/obs monitor-deploy`:
 
 ```
-[ ] Health endpoint responding: curl https://your-app.com/health
-[ ] Metrics endpoint flowing: curl https://your-app.com/metrics | grep solana_
+[ ] Health endpoint responding: curl https://app.example.com/health
+[ ] Metrics endpoint flowing: curl https://app.example.com/metrics | grep solana_
 [ ] Test alert fires: temporarily lower threshold, wait for Discord/PagerDuty notification
 [ ] Grafana dashboard loads with real data (not "No Data")
 [ ] Runbook link in alert annotations is accessible
@@ -333,5 +333,3 @@ After running `/obs monitor-deploy`:
 [ ] Fee payer auto-refill automation set up (or calendar reminder)
 [ ] Program upgrade authority confirmed and documented
 ```
-
-

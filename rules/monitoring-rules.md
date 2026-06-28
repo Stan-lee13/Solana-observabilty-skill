@@ -388,6 +388,7 @@ Include explicit acknowledgement and mitigation steps in the alerting metadata s
 - During incidents, increase sampling to 100% for affected services/windows.
 
 Instrumentation guidelines:
+
 - Attach SLO, cluster, program_id, and instruction to spans where safe.
 - Use short-lived, redacted identifiers for sensitive fields.
 
@@ -428,6 +429,3 @@ Every production Grafana dashboard JSON must include:
 - SLOs and critical alerts must be reviewed quarterly or after any P0 incident.
 - Owners must be documented and reachable; rotate on-call ownership at least every 6 months.
 - Maintain a changelog for monitoring rule changes with reviewer and rationale.
-
-
-

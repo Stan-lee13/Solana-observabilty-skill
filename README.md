@@ -91,14 +91,17 @@ solana-observability-skill/
 ## Why This Beats Every Other Approach
 
 ### vs. ad-hoc scripts
+
 Every team re-builds the same RPC health check, the same CU monitor, the same alert webhook. This ships it in 60 seconds with a `docker compose up`.
 
 ### vs. generic monitoring guides
+
 Generic guides teach Prometheus concepts. This skill teaches Solana-specific patterns:
 slot lag thresholds, CU budget alerting, instruction discriminator tracking,
 program upgrade detection.
 
 ### vs. other observability submissions
+
 This skill covers 9 skill files across 7 observability layers (infrastructure,
 program, application, alerting, tracing, dashboards, profiling/resources), 6 agents
 with production-grade depth, runbooks, governance docs, and a deployable local
@@ -186,5 +189,3 @@ MIT — free to use, submodule, or extend.
 ## Author
 
 Built by Victor Stanley ([@Stan-lee13](https://github.com/Stan-lee13)) for the Superteam Earn Solana AI Kit bounty.
-
-

@@ -716,5 +716,3 @@ class IDLVersionTracker {
   }
 }
 ```
-
-
