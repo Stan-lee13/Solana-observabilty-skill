@@ -111,6 +111,9 @@ Use this skill when the user asks for:
 | Logging / Tracing | Structured logs, trace correlation | [logging-tracing.md](logging-tracing.md) |
 | Dashboards / Viz | Grafana, React components, metrics | [dashboards.md](dashboards.md) |
 | CU Profiling / CI | Per-instruction CU budgets, regression gates | [program-profiling.md](program-profiling.md) |
+| Security / Threat | Authority changes, probe patterns, drain detection | [security-observability.md](security-observability.md) |
+| Synthetic / Canary | Probe transactions, health canaries, end-to-end | [synthetic-monitoring.md](synthetic-monitoring.md) |
+| Cost Optimization | RPC credits, CU budgets, Helius billing | [cost-optimization.md](cost-optimization.md) |
 
 ### 2. Pick the Right Agent
 
@@ -195,6 +198,18 @@ Request ID (frontend) → RPC Call ID → Transaction Signature → Confirmed Bl
 
 - [program-profiling.md](program-profiling.md) — Per-instruction CU budgets, regression gates, production CU forensics
 
+### Security Observability
+
+- [security-observability.md](security-observability.md) — Security-specific metrics (authority changes, probe patterns, vault drain rate, oracle deviation, watchlist hits). Feeds to `solana-incident-response-skill` via `ecosystem-signals.md`.
+
+### Synthetic Monitoring
+
+- [synthetic-monitoring.md](synthetic-monitoring.md) — Canary transactions, continuous health probes (RPC, instruction, fee payer, indexer, Blinks), Cloudflare Worker scheduler, synthetic Prometheus metrics.
+
+### Cost Optimization
+
+- [cost-optimization.md](cost-optimization.md) — RPC credit reduction (webhooks vs polling), response payload optimization, CU budget strategies, Helius credit monitoring, cost regression tests.
+
 ### Resources
 
 - [resources.md](resources.md) — Curated tools, libraries, services, and reference links for Solana observability
@@ -258,3 +273,4 @@ This skill uses progressive disclosure:
 - **Resource file** — Loaded only when external tools/services are referenced
 
 Agents reference these files rather than duplicating content. Cross-layer correlation guidance stays in this hub file.
+
