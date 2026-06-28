@@ -1,0 +1,115 @@
+# =============================================================================
+# alertmanager.yml — Solana Observability Stack
+# =============================================================================
+# Enable with: docker compose --profile alertmanager up -d
+#
+# Set secrets in .env:
+#   DISCORD_WEBHOOK_URL
+#   PAGERDUTY_INTEGRATION_KEY
+#   SLACK_WEBHOOK_URL
+# =============================================================================
+
+global:
+  # How long to wait before re-sending an unresolved alert
+  repeat_interval: 4h
+  # How long to wait for related alerts to arrive before sending a group
+  group_wait: 30s
+  # How long to wait before sending a notification for new alerts in a group
+  group_interval: 5m
+
+# Notification templates
+templates:
+  - "/etc/alertmanager/templates/*.tmpl"
+
+# ── Routing tree ──────────────────────────────────────────────────────────────
+route:
+  # Default receiver for all alerts
+  receiver: discord-ops
+
+  # Group alerts by alertname and service to reduce noise
+  group_by: ["alertname", "service", "severity"]
+
+  # P0 alerts route immediately to PagerDuty
+  routes:
+    - match:
+        severity: p0
+      receiver: pagerduty-critical
+      group_wait: 0s
+      repeat_interval: 1h
+      continue: true  # also send to Discord
+
+    - match:
+        severity: p0
+      receiver: discord-ops
+
+    # P1 alerts route to Discord with fast repeat
+    - match:
+        severity: p1
+      receiver: discord-ops
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # P2 alerts route to Discord with standard timing
+    - match:
+        severity: p2
+      receiver: discord-ops
+      group_wait: 2m
+      repeat_interval: 4h
+
+# ── Inhibit rules ─────────────────────────────────────────────────────────────
+# Suppress lower-severity alerts when a higher-severity alert is firing
+# for the same service (prevents alert storm flooding)
+inhibit_rules:
+  - source_match:
+      severity: "p0"
+    target_match_re:
+      severity: "p1|p2"
+    equal: ["service"]
+
+  - source_match:
+      severity: "p1"
+    target_match:
+      severity: "p2"
+    equal: ["service"]
+
+# ── Receivers ─────────────────────────────────────────────────────────────────
+receivers:
+  # Discord (primary notification channel)
+  - name: discord-ops
+    discord_configs:
+      - webhook_url: "${DISCORD_WEBHOOK_URL}"
+        send_resolved: true
+        title: '{{ template "discord.title" . }}'
+        message: |
+          **Severity:** {{ .CommonLabels.severity | toUpper }}
+          **Service:** {{ .CommonLabels.service }}
+          **Alert:** {{ .CommonAnnotations.summary }}
+          {{ .CommonAnnotations.description }}
+          **Runbook:** {{ .CommonLabels.runbook_url }}
+          **Dashboard:** {{ .CommonLabels.dashboard_url }}
+
+  # PagerDuty (P0 alerts — wakes someone up)
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - routing_key: "${PAGERDUTY_INTEGRATION_KEY}"
+        send_resolved: true
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          service: '{{ .CommonLabels.service }}'
+          severity: '{{ .CommonLabels.severity }}'
+          description: '{{ .CommonAnnotations.description }}'
+          runbook: '{{ .CommonLabels.runbook_url }}'
+
+  # Slack (optional secondary channel)
+  - name: slack-ops
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#solana-alerts"
+        send_resolved: true
+        username: "Solana Observability"
+        icon_emoji: ":satellite:"
+        title: '{{ .CommonAnnotations.summary }}'
+        text: |
+          *{{ .CommonLabels.severity | toUpper }}* — {{ .CommonLabels.service }}
+          {{ .CommonAnnotations.description }}
+          Runbook: {{ .CommonLabels.runbook_url }}
