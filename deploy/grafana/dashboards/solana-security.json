@@ -1,0 +1,220 @@
+{
+  "title": "Solana Security Observability",
+  "uid": "solana-security",
+  "tags": ["solana", "security", "incident-response"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "🔴 Active Security Threats",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "count(ALERTS{severity=\"p0\", alertstate=\"firing\", service=\"solana-security\"})",
+        "legendFormat": "P0 Alerts"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Authority Changes (5m)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{
+        "expr": "sum(increase(solana_authority_change_total[5m]))",
+        "legendFormat": "Authority Changes"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1, "color": "red" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/unauthorized-upgrade.md" }]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Watchlist Wallet Hits (1h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "sum(increase(solana_watchlist_wallet_hit_total[1h]))",
+        "legendFormat": "Watchlist Hits"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1, "color": "red" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/wallet-drain-detected.md" }]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Oracle Deviation (max)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{
+        "expr": "max(abs(solana_oracle_price_deviation_pct))",
+        "legendFormat": "Max Deviation %"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 3, "color": "yellow" },
+              { "value": 8, "color": "red" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/oracle-manipulation.md" }]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Vault Drain Rate (lamports/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{
+        "expr": "solana_vault_drain_rate_lamports_per_sec",
+        "legendFormat": "{{ vault_alias }}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 500000000, "color": "yellow" },
+              { "value": 1000000000, "color": "red" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/active-drain.md" }]
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Probe Pattern Score by Wallet",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [{
+        "expr": "topk(5, solana_probe_pattern_score > 20)",
+        "legendFormat": "{{ wallet }}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 40, "color": "yellow" },
+              { "value": 70, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Flash Loan Co-occurrence Events",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "targets": [{
+        "expr": "sum by (flash_loan_program) (rate(solana_flash_loan_cooccurrence_total[5m]))",
+        "legendFormat": "{{ flash_loan_program }}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 8,
+      "title": "SetAuthority Instructions",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "targets": [{
+        "expr": "sum by (authority_type) (rate(solana_set_authority_instruction_total[5m]))",
+        "legendFormat": "{{ authority_type }}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 9,
+      "title": "Governance Token Accumulation",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "targets": [{
+        "expr": "max by (governance_mint) (solana_governance_token_accumulation_pct)",
+        "legendFormat": "{{ governance_mint }}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 3, "color": "yellow" },
+              { "value": 10, "color": "red" }
+            ]
+          },
+          "links": [{ "title": "Runbook", "url": "runbooks/governance-attack.md" }]
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Security Event Log",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "targets": [
+        {
+          "expr": "ALERTS{service=\"solana-security\",alertstate=\"firing\"}",
+          "legendFormat": "{{ alertname }} — {{ labels.program_id }}"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "severity" }, "properties": [
+            { "id": "custom.width", "value": 80 },
+            { "id": "mappings", "value": [
+              { "type": "value", "options": { "p0": { "text": "P0", "color": "red" }, "p1": { "text": "P1", "color": "orange" }, "p2": { "text": "P2", "color": "yellow" } } }
+            ]}
+          ]}
+        ]
+      }
+    }
+  ]
+}
