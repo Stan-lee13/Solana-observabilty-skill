@@ -202,3 +202,90 @@ Actions:
 - **Indexer lag**: Delay from finalized chain state to queryable app state.
 - **TGE**: Token generation event: mint, claim, listing, and liquidity setup.
 - **Error budget**: Allowed failure budget for an SLO window.
+
+---
+
+## Wallet-Specific Signals (Added v2 — Wallet Engineering Framework)
+
+These signals extend the base ecosystem signals for the full wallet development lifecycle.
+All five skills must handle these signals. See `wallet-framework.md` for complete routing.
+
+### WALLET_KEY_COMPROMISED (P0 — Highest Priority)
+
+```typescript
+// Fire: Incident Response skill (when key compromise confirmed or suspected)
+// Receive: ALL skills
+export interface WalletKeyCompromisedSignal {
+  signal: "WALLET_KEY_COMPROMISED";
+  severity: "P0";
+  key_type: "user_wallet" | "fee_payer" | "upgrade_authority" | "mint_authority" | "treasury";
+  compromised_address: string;
+  confirmed: boolean;
+  detected_at_utc: string;
+}
+// → Load: skill/active-exploit-response.md immediately
+// → Load: skill/wallet-security.md → Emergency Key Rotation Checklist
+// → Notify all team members within 2 minutes
+```
+
+### WALLET_DRAINER_ACTIVE (P1)
+
+```typescript
+// Fire: UX skill (intent analyzer blocked a drainer transaction)
+// Receive: Incident Response, Observability
+export interface WalletDrainerActiveSignal {
+  signal: "WALLET_DRAINER_ACTIVE";
+  severity: "P1";
+  drainer_pattern: "set_authority" | "delegate_approve" | "versioned_alt" | "unknown";
+  blocks_in_window: number;
+  window_minutes: number;
+}
+// → Load: skill/wallet-security.md → Drainer Contract Deep Analysis
+// → Consider frontend takedown if blocks_in_window > 50
+```
+
+### WALLET_FEE_PAYER_CRITICAL (P1)
+
+```typescript
+// Fire: Observability skill
+// Receive: UX skill (degrade gasless), DePIN (pause proof submission)
+export interface WalletFeePayerCriticalSignal {
+  signal: "WALLET_FEE_PAYER_CRITICAL";
+  severity: "P1";
+  alias: string;
+  current_balance_sol: number;
+  runway_hours: number;
+}
+// → Load: runbooks/fee-payer-low.md
+// → UX: activate graceful degradation (disable gasless, show "pay own gas" flow)
+```
+
+### WALLET_ADDRESS_POISONING_DETECTED (P2)
+
+```typescript
+// Fire: UX skill
+// Receive: Incident Response (comms), Observability (tracking)
+export interface WalletAddressPoisoningSignal {
+  signal: "WALLET_ADDRESS_POISONING_DETECTED";
+  severity: "P2";
+  similar_to_address: string;  // The legitimate address being mimicked
+  attack_count: number;        // Number of poisoning txs seen
+}
+// → Load: skill/wallet-security.md → Address Poisoning Response Protocol
+// → Post user warning on all official channels
+```
+
+### WALLET_SIGNING_LATENCY_HIGH (P2)
+
+```typescript
+// Fire: Observability skill
+// Receive: UX skill, Performance optimization
+export interface WalletSigningLatencySignal {
+  signal: "WALLET_SIGNING_LATENCY_HIGH";
+  severity: "P2";
+  p95_latency_ms: number;
+  slo_target_ms: number;
+}
+// → Load: skill/performance-optimization.md → RPC endpoint failover
+// → Check: is latency from RPC or from wallet popup rendering?
+```
