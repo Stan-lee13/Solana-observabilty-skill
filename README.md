@@ -1,191 +1,217 @@
-<p align="center">
-  <strong>solana-observability-skill</strong><br/>
-  Production monitoring, alerting, and operational intelligence for Solana dApps
-</p>
+<div align="center">
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Solana AI Kit](https://img.shields.io/badge/Solana%20AI%20Kit-compatible-green)](https://github.com/solanabr/solana-ai-kit)
+<img src="https://img.shields.io/badge/Solana-Observability_Skill-14F195?style=for-the-badge&logo=solana&logoColor=black" alt="Solana Observability Skill"/>
+
+**See everything. Know before your users do.**
+
+*Infrastructure monitoring · Program metrics · Alerting pipelines · Distributed tracing · Security observability · Cost optimization · Synthetic monitoring*
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)](deploy/docker-compose.yml)
+[![Grafana](https://img.shields.io/badge/Grafana-4_dashboards-F46800?style=flat-square&logo=grafana)](deploy/grafana/dashboards/)
+[![Skills](https://img.shields.io/badge/Skill_files-13-14F195?style=flat-square)](skill/)
+[![Agents](https://img.shields.io/badge/Agents-6-orange?style=flat-square)](agents/)
+[![Runbooks](https://img.shields.io/badge/Runbooks-7-red?style=flat-square)](runbooks/)
+
+</div>
 
 ---
 
-# solana-observability-skill
+## What This Skill Does
 
-Production observability for Solana dApps — from RPC health checks to SLO burn rate alerting. This skill turns operational blindness into complete, correlated visibility across the full stack.
+Turns a blind Solana protocol into a fully observable system in under 5 minutes. Ships with a complete Docker Compose stack — Prometheus, Grafana, Alertmanager, and a custom Solana exporter — that works out of the box with zero configuration.
 
-**The problem it solves:** Every Solana protocol eventually faces the same questions at 3am
-— "Why are my transactions failing?" "Is my RPC down or is my program broken?"
-"How do I know before my users do?" This skill provides production-grade answers
-with deployable infrastructure you can spin up immediately.
+| Layer | What you get |
+|---|---|
+| **Infrastructure** | Validator health, RPC latency (p50/p99), slot lag, crank uptime, multi-region failover |
+| **Program metrics** | Instruction success rates, account state changes, CU consumption, fee trends |
+| **Alerting** | 15 pre-built Solana alert rules → PagerDuty / Slack / Opsgenie in < 60s |
+| **Distributed tracing** | OpenTelemetry + Jaeger/Tempo, correlation IDs across RPC → program → frontend |
+| **Security observability** | Wallet drain early warning, MEV detection, unauthorized upgrade alerts |
+| **Synthetic monitoring** | Canary transactions, SLA verification via scheduled on-chain probes |
+| **Cost optimization** | CU reduction patterns, RPC credit analysis, Helius webhook cost modeling |
 
 ---
 
 ## 60-Second Deploy
 
 ```bash
-# Install the skill
-curl -sSL https://raw.githubusercontent.com/Stan-lee13/Solana-observabilty-skill/main/install.sh | bash
+# 1. Install the skill
+bash <(curl -fsSL https://raw.githubusercontent.com/Stan-lee13/Solana-observabilty-skill/main/install.sh)
 
-# Spin up monitoring stack (Prometheus + Grafana + custom Solana exporter)
-cd .claude/skills/solana-observability/deploy
-docker compose up -d
+# 2. Spin up the full monitoring stack
+cd .claude/skills/solana-observability-skill
+cp deploy/.env.example deploy/.env   # fill in your HELIUS_API_KEY
+docker compose -f deploy/docker-compose.yml up -d
 
-# Grafana at http://localhost:3000 (admin / solana-obs)
-# Prometheus at http://localhost:9090
-# Solana metrics at http://localhost:3001/metrics
+# 3. Open dashboards
+open http://localhost:3000   # Grafana — admin / solana-obs
 ```
+
+**That's it. You now have:**
+- Live Solana infrastructure dashboard
+- 15 pre-wired alert rules
+- Custom on-chain exporter scraping your program
+- Alertmanager routing to your PagerDuty/Slack
 
 ---
 
-## What's Included
+## Pre-Built Stack (Zero Configuration)
+
+```
+deploy/
+  docker-compose.yml          ← One command. Full stack.
+  prometheus.yml              ← Scrapes Solana exporter + your app metrics
+  alertmanager.yml            ← Routes to PagerDuty / Slack
+  alerts.yml                  ← 15 battle-tested Solana alert rules
+  .env.example                ← Copy → .env, add HELIUS_API_KEY
+  solana-exporter/
+    index.ts                  ← Custom Prometheus exporter (RPC + on-chain)
+    test/exporter.test.ts     ← Unit tests — npx vitest run
+    Dockerfile
+  grafana/
+    dashboards/
+      solana-infrastructure.json      ← Import directly — zero setup
+      solana-program-monitoring.json
+      solana-security.json
+      solana-ux-observability.json
+    provisioning/             ← Auto-provisioned on first start
+```
+
+**The 15 pre-built alert rules cover:**
+
+| Alert | Threshold | Severity |
+|---|---|---|
+| Transaction success rate | < 95% for 5 min | P1 |
+| RPC p99 latency | > 2000ms sustained | P1 |
+| Slot lag | > 100 slots behind cluster | P1 |
+| Wallet drain pattern | > $500K unexpected outbound | P0 |
+| Crank not firing | > 2 missed slots | P2 |
+| Alert pipeline silent | > 10 min (self-monitoring) | P1 |
+| Helius queue depth | > 1000 unprocessed | P2 |
+| Container restart loop | > 3 restarts / 10 min | P2 |
+
+---
+
+## Skill Map (13 Files, Progressive Loading)
 
 ```
 solana-observability-skill/
-├── SKILL.md                              # Progressive loader — routing hub
-├── README.md                             # This file
-├── CLAUDE.md                             # Claude Code configuration
-├── install.sh                            # One-command installer
-├── LICENSE                               # MIT
+│
+├── SKILL.md                          ← Routing table — start here
+├── CLAUDE.md                         ← Behavior rules + stack defaults
 │
 ├── skill/
-│   ├── SKILL.md                          # Sub-skill routing table
-│   ├── infrastructure-monitoring.md      # RPC health, slot lag, endpoint failover (494 lines)
-│   ├── program-monitoring.md             # CU tracking, TX success, upgrade detection (718 lines)
-│   ├── application-observability.md      # Wallet errors, UX funnels, client metrics (776 lines)
-│   ├── alerting.md                       # SLO burn rates, severity routing, runbooks (617 lines)
-│   ├── logging-tracing.md                # OpenTelemetry, Pino, trace correlation (490 lines)
-│   ├── dashboards.md                     # Grafana JSON, React real-time components (697 lines)
-│   ├── program-profiling.md              # Per-instruction CU analysis, CI regression gates (386 lines)
-│   └── resources.md                      # Resource planning, providers, cost, scaling, governance
+│   ├── infrastructure-monitoring.md  ← Validators, RPCs, cranks, multi-region
+│   ├── program-monitoring.md         ← Instruction metrics, account state, CU
+│   ├── alerting.md                   ← PagerDuty/Opsgenie, routing, tiers
+│   ├── dashboards.md                 ← Grafana panel design, importing exports
+│   ├── logging-tracing.md            ← OpenTelemetry, Jaeger, structured logging
+│   ├── application-observability.md  ← SDK instrumentation, frontend errors
+│   ├── security-observability.md     ← Drain detection, MEV, upgrade anomalies  ★
+│   ├── synthetic-monitoring.md       ← Canary txs, SLA probes, health checks
+│   ├── cost-optimization.md          ← CU optimization, RPC credit reduction
+│   ├── program-profiling.md          ← CU budget analysis, Mollusk profiling
+│   ├── wallet-observability.md       ← Address monitoring, balance thresholds   ★
+│   ├── resources.md                  ← Tool comparison, pricing, SDK matrix
+│   └── SKILL.md                      ← Sub-skill routing table
 │
 ├── agents/
-│   ├── observability-architect.md        # Stack selection, SLO design, correlation strategy
-│   ├── monitoring-engineer.md            # Writes all monitoring code: exporters, health checks
-│   ├── sre-engineer.md                   # Alert rules, runbooks, SLO burn rate management
-│   ├── visualization-engineer.md         # Dashboard architecture, governance, stakeholder views
-│   ├── data-viz-engineer.md              # Concrete Grafana JSON, PromQL, React components
-│   └── incident-commander.md             # Production debugging, root cause analysis
+│   ├── observability-architect.md    ← System design, SLO definition, stack choice
+│   ├── monitoring-engineer.md        ← Alert rules, scrape config, dashboards
+│   ├── sre-engineer.md               ← On-call runbooks, incident integration
+│   ├── data-viz-engineer.md          ← Grafana panels, metric selection
+│   ├── visualization-engineer.md     ← Deep chart engineering, accessibility
+│   └── incident-commander.md         ← Cross-skill: feeds into IR skill
 │
 ├── commands/
-│   ├── health-check.md                   # /obs health-check — comprehensive health audit
-│   └── monitor-deploy.md                 # /obs monitor-deploy — deploy monitoring stack
+│   ├── health-check.md               ← /health-check: full stack health report
+│   ├── monitor-deploy.md             ← /monitor-deploy: deploy monitoring stack
+│   ├── alert-setup.md                ← /alert-setup: configure alerting pipeline
+│   ├── dashboard.md                  ← /dashboard: generate custom Grafana panels
+│   ├── trace.md                      ← /trace: distributed trace analysis
+│   ├── cu-optimize.md                ← /cu-optimize: CU budget reduction
+│   └── incident.md                   ← /incident: trigger IR skill handoff
 │
-├── rules/
-│   └── monitoring-rules.md               # Auto-loading safety rules
+├── runbooks/                         ← 7 operational playbooks
+│   ├── rpc-degradation.md
+│   ├── transaction-success-rate-low.md
+│   ├── wallet-drain-detected.md      ← Cross-wires to incident-response-skill
+│   ├── wallet-error-spike.md
+│   ├── fee-payer-low.md
+│   ├── indexer-lag.md
+│   └── program-upgrade-detected.md
 │
-└── deploy/                               # ← Deployable monitoring stack
-    ├── docker-compose.yml                # Prometheus + Grafana + Solana exporter
-    ├── prometheus.yml                    # Scrape config + alert rules
-    ├── solana-exporter/
-    │   ├── index.ts                      # Custom Solana metrics exporter
-    │   └── package.json
-    └── grafana/
-        ├── dashboards/
-        │   └── solana-infrastructure.json # RPC health, slot lag, endpoint status
-        └── provisioning/
-            ├── datasources/prometheus.yml
-            └── dashboards/dashboards.yml
+└── deploy/                           ← Full Docker stack — ships working
+    ├── docker-compose.yml
+    ├── prometheus.yml
+    ├── alertmanager.yml
+    ├── alerts.yml
+    ├── .env.example
+    ├── solana-exporter/              ← Custom TypeScript Prometheus exporter
+    └── grafana/                      ← 4 dashboard exports + auto-provisioning
+
+★ = not found in any other observability submission in this bounty
 ```
 
 ---
 
-## Why This Beats Every Other Approach
+## Five Things No Other Observability Submission Has
 
-### vs. ad-hoc scripts
+**1. Custom Solana Prometheus exporter** (`deploy/solana-exporter/index.ts`)
+A TypeScript exporter that scrapes RPC endpoints for slot lag, transaction confirmation rates, and account state changes — then exposes them as Prometheus metrics. Ships with a Dockerfile and full unit test suite (`npx vitest run`). Import → run → metrics in 60 seconds.
 
-Every team re-builds the same RPC health check, the same CU monitor, the same alert webhook. This ships it in 60 seconds with a `docker compose up`.
+**2. Four Grafana dashboards pre-built and pre-wired** (`deploy/grafana/dashboards/`)
+`solana-infrastructure.json`, `solana-program-monitoring.json`, `solana-security.json`, `solana-ux-observability.json` — all four import directly into any Grafana instance with zero panel configuration. The provisioning directory auto-loads them on first `docker compose up`.
 
-### vs. generic monitoring guides
+**3. Security observability layer** (`skill/security-observability.md`)
+Detects wallet drain patterns (unusual outbound volume), MEV extraction signatures, unauthorized program upgrade events, and oracle manipulation signals — before they show up in your Discord. Most skills treat observability as latency + uptime. This one treats it as defense.
 
-Generic guides teach Prometheus concepts. This skill teaches Solana-specific patterns:
-slot lag thresholds, CU budget alerting, instruction discriminator tracking,
-program upgrade detection.
+**4. Wallet-specific observability** (`skill/wallet-observability.md`)
+Address-level monitoring for fee payer wallets, treasury accounts, and high-value user wallets. Threshold alerts on balance changes. Transaction pattern analysis per address. Feeds directly into the Incident Response skill's `WALLET_DRAIN_DETECTED` signal.
 
-### vs. other observability submissions
-
-This skill covers 9 skill files across 7 observability layers (infrastructure,
-program, application, alerting, tracing, dashboards, profiling/resources), 6 agents
-with production-grade depth, runbooks, governance docs, and a deployable local
-monitoring stack.
+**5. Cross-skill signal routing** (`ecosystem-signals.md`)
+Eight canonical signals that route automatically into Incident Response (`WALLET_DRAIN_DETECTED` → P0 incident), Token Launch (`TGE_PRICE_SHOCK`), and DePIN (`DEPIN_NODE_LOSS`). Your monitoring infrastructure doesn't just alert you — it activates the right response skill automatically.
 
 ---
 
-## Coverage Matrix
+## SLO Reference
 
-| Layer | Skill File | What's Covered |
-|-------|-----------|----------------|
-| **Infrastructure** | `infrastructure-monitoring.md` | Multi-endpoint health, slot lag, rate limits,
-  circuit breakers, endpoint failover |
-| **Program** | `program-monitoring.md` | Per-instruction success rates, CU metering,
-  upgrade detection, authority monitoring |
-| **Application** | `application-observability.md` | Wallet error classification, UX funnels,
-  client-side latency, Sentry integration |
-| **Alerting** | `alerting.md` | SLO burn rates (multi-window), severity routing P0→P4,
-  auto-remediation |
-| **Logging/Tracing** | `logging-tracing.md` | Structured Pino logging, OpenTelemetry spans,
-  trace correlation IDs |
-| **Dashboards** | `dashboards.md` | Grafana JSON dashboards, React real-time components, PromQL queries |
-| **CU Profiling** | `program-profiling.md` | Per-instruction CU budgets, CI regression gates, production CU forensics |
+| Signal | Target | Window |
+|---|---|---|
+| Transaction success rate | ≥ 99.5% | 5-min rolling |
+| RPC p50 latency | < 200 ms | 1-hour rolling |
+| RPC p99 latency | < 1000 ms | 1-hour rolling |
+| Alert delivery | < 60 s end-to-end | Per alert |
+| Slot lag | < 50 slots | 1-min rolling |
+| Dashboard load | < 3 s | Per page load |
 
 ---
 
-## Example: 3-Minute Health Check
+## Cross-Skill Integration
 
-```typescript
-import { RpcHealthMonitor } from './monitoring/rpc-health';
-
-const monitor = new RpcHealthMonitor([
-  { url: process.env.HELIUS_RPC!, weight: 100, timeoutMs: 5000 },
-  { url: process.env.QUICKNODE_RPC!, weight: 80, timeoutMs: 5000 },
-]);
-
-// GET /healthz → { status: "ok", endpoints: [...], slotLag: 3 }
-app.get('/healthz', async (c) => {
-  const results = await monitor.checkHealth();
-  const healthy = results.filter(r => r.healthy);
-  return c.json({
-    status: healthy.length > 0 ? 'ok' : 'degraded',
-    endpoints: results,
-  });
-});
 ```
-
-## Example: SLO Burn Rate Alert
-
-```typescript
-// Alert when you're burning through your error budget too fast
-// (borrowed from Google SRE — adapted for Solana)
-const burnAlert = await evaluateBurnRate({
-  sloTarget: 0.995,           // 99.5% tx success rate
-  windowHours: 1,             // 1-hour window
-  errorBudgetHours: 3.6,      // 30-day budget = 3.6 hours of 0% success
-  currentSuccessRate: await getTxSuccessRate(),
-});
-
-if (burnAlert.burnMultiple > 14.4) {
-  await page("P0: Burning through 30-day error budget in <1 hour");
-}
+solana-observability-skill  ←── YOU ARE HERE
+        │
+        ├──→  solana-incident-response-skill  (WALLET_DRAIN_DETECTED → P0)
+        ├──→  solana-depin-builder-skill      (DEPIN_NODE_LOSS → operator alert)
+        └──→  solana-token-launch-skill       (TGE_PRICE_SHOCK → post-launch monitoring)
 ```
 
 ---
 
-## Quick Start Prompts
+## Install
 
-```
-"Set up RPC health monitoring with failover for my dApp"
-"Create a Grafana dashboard showing transaction success rates and CU usage"
-"Build an alert that pages me when transactions fail >10% or burn error budget too fast"
-"Add OpenTelemetry tracing from my frontend through RPC to on-chain confirmation"
-"Monitor my program for unauthorized upgrades or authority changes"
-"Set up SLO burn rate alerting for my protocol"
-"Run /obs health-check on my infrastructure"
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Stan-lee13/Solana-observabilty-skill/main/install.sh)
 ```
 
 ---
 
-## License
+<div align="center">
 
-MIT — free to use, submodule, or extend.
+MIT License · Built for the [Superteam Earn Solana AI Kit Bounty](https://earn.superteam.fun)
 
-## Author
+*68 files · 511KB · 13 skill docs · 6 agents · 7 commands · 7 runbooks · Full Docker stack*
 
-Built by Victor Stanley ([@Stan-lee13](https://github.com/Stan-lee13)) for the Superteam Earn Solana AI Kit bounty.
+</div>
