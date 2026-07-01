@@ -213,3 +213,104 @@ class SolanaRpcMonitor {
 "monitoring-engineer why is my fee payer running out of SOL so fast — add tracking"
 → Adds Gauge metric, alert rule, and daily cost estimation log
 ```
+
+---
+
+## SLO Burn Rate Alerting (Multi-Window)
+
+Standard single-threshold alerts miss both fast burns and slow sustained degradation. Use a two-window burn rate approach:
+
+```yaml
+# prometheus/rules/slo-burn-rates.yml
+groups:
+  - name: slo_burn_rates
+    rules:
+      # Fast burn (1h): catches sudden outages
+      - alert: SLOFastBurn
+        expr: |
+          (
+            1 - (
+              sum(rate(solana_tx_success_total[1h])) /
+              sum(rate(solana_tx_total[1h]))
+            )
+          ) > (14.4 * (1 - 0.999))
+        for: 2m
+        labels:
+          severity: critical
+          window: "1h"
+        annotations:
+          summary: "SLO fast burn: {{ $value | humanizePercentage }} error rate"
+          description: "At this rate, the 30-day error budget will be exhausted in < 2 hours."
+
+      # Slow burn (6h): catches sustained degradation
+      - alert: SLOSlowBurn
+        expr: |
+          (
+            1 - (
+              sum(rate(solana_tx_success_total[6h])) /
+              sum(rate(solana_tx_total[6h]))
+            )
+          ) > (6 * (1 - 0.999))
+        for: 15m
+        labels:
+          severity: warning
+          window: "6h"
+        annotations:
+          summary: "SLO slow burn: {{ $value | humanizePercentage }} error rate over 6h"
+          description: "Sustained degradation consuming error budget. Will exhaust in < 5 days."
+```
+
+---
+
+## Prometheus Recording Rules (Cardinality Budget)
+
+Recording rules pre-aggregate high-cardinality metrics to reduce query time and storage:
+
+```yaml
+# prometheus/rules/recording-rules.yml
+groups:
+  - name: solana_aggregations
+    interval: 60s
+    rules:
+      # Pre-aggregate tx success rate by program (avoids per-instruction cardinality)
+      - record: job:solana_tx_success_rate:rate5m
+        expr: |
+          sum by (job, program) (
+            rate(solana_transaction_total{status="success"}[5m])
+          ) /
+          sum by (job, program) (
+            rate(solana_transaction_total[5m])
+          )
+
+      # Pre-aggregate CU usage by instruction type
+      - record: job:solana_cu_used:rate5m
+        expr: |
+          sum by (job, instruction) (
+            rate(solana_compute_units_used_total[5m])
+          )
+
+      # Fee payer burn rate (lamports/second)
+      - record: job:solana_fee_payer_burn_rate:rate1h
+        expr: |
+          sum by (fee_payer) (
+            rate(solana_fee_payer_spent_lamports_total[1h])
+          )
+```
+
+**Cardinality budget rule:** Keep total active time series < 100K. Every label value multiplies series count. Avoid labeling with user IDs, wallet addresses, or tx signatures — use aggregated dimensions only.
+
+---
+
+## Example Interactions
+
+**"The tx success rate alert keeps firing but I don't see failures in the program logs"**
+
+> Load `program-monitoring.md` → check RPC-level vs program-level error distinction.
+> RPC errors (blockhash, fee) show in transaction logs but not program logs.
+> Add: `solana_transaction_total{error_source="rpc"}` vs `{error_source="program"}` labels.
+
+**"Our Prometheus cardinality is exploding and queries are slow"**
+
+> Load `cost-optimization.md` → cardinality management section.
+> Run: `topk(20, count by (__name__, job)({__name__=~".+"}))` to find worst offenders.
+> Apply recording rules above and drop high-cardinality labels from raw metrics.
