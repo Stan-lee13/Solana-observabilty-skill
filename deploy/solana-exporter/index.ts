@@ -405,6 +405,91 @@ async function scrapeDepinNodes(connection: Connection): Promise<void> {
   }
 }
 
+
+// ─── Wallet & Security Metrics (referenced by alerting.md alert rules) ──────
+
+const authorityMismatch = new Gauge({
+  name: "solana_authority_mismatch",
+  help: "1 if account authority does not match expected; 0 if correct",
+  labelNames: ["account", "expected_authority", "actual_authority"],
+  registers: [registry],
+});
+
+const hdGapMaxFundedIndex = new Gauge({
+  name: "solana_hd_gap_max_funded_index",
+  help: "Highest BIP44 index with a funded account for HD wallet gap limit monitoring",
+  labelNames: ["operator"],
+  registers: [registry],
+});
+
+const keystoreAlgoValid = new Gauge({
+  name: "solana_keystore_algo_valid",
+  help: "1 if keystore uses Argon2id; 0 if weak KDF detected",
+  labelNames: ["node_id"],
+  registers: [registry],
+});
+
+const programDataHashChanges = new Counter({
+  name: "solana_program_data_hash_changes_total",
+  help: "Total number of program binary hash changes detected",
+  labelNames: ["program_id"],
+  registers: [registry],
+});
+
+const unexpectedOutflow = new Counter({
+  name: "solana_unexpected_outflow_lamports_total",
+  help: "Cumulative unexpected lamport outflows detected from monitored addresses",
+  labelNames: ["address"],
+  registers: [registry],
+});
+
+const walletAdapterErrors = new Counter({
+  name: "solana_wallet_adapter_errors_total",
+  help: "Total wallet adapter errors by error type",
+  labelNames: ["error_type", "wallet_name"],
+  registers: [registry],
+});
+
+const walletAdapterRequests = new Counter({
+  name: "solana_wallet_adapter_requests_total",
+  help: "Total wallet adapter connection/signing requests",
+  labelNames: ["method", "wallet_name"],
+  registers: [registry],
+});
+
+const indexerLagSeconds = new Gauge({
+  name: "solana_indexer_lag_seconds",
+  help: "Seconds the indexer is behind the chain head",
+  labelNames: ["indexer", "cluster"],
+  registers: [registry],
+});
+
+// Export setters so external probes / wallet-observability integrations can push values
+export const securityMetrics = {
+  setAuthorityMismatch: (account: string, expected: string, actual: string, val: number) =>
+    authorityMismatch.set({ account, expected_authority: expected, actual_authority: actual }, val),
+  setHdGapMaxIndex: (operator: string, index: number) =>
+    hdGapMaxFundedIndex.set({ operator }, index),
+  setKeystoreAlgoValid: (nodeId: string, valid: boolean) =>
+    keystoreAlgoValid.set({ node_id: nodeId }, valid ? 1 : 0),
+  incProgramHashChange: (programId: string) =>
+    programDataHashChanges.inc({ program_id: programId }),
+  incUnexpectedOutflow: (address: string, lamports: number) =>
+    unexpectedOutflow.inc({ address }, lamports),
+  incWalletAdapterError: (errorType: string, walletName: string) =>
+    walletAdapterErrors.inc({ error_type: errorType, wallet_name: walletName }),
+  incWalletAdapterRequest: (method: string, walletName: string) =>
+    walletAdapterRequests.inc({ method, wallet_name: walletName }),
+  setIndexerLag: (indexer: string, cluster: string, seconds: number) =>
+    indexerLagSeconds.set({ indexer, cluster }, seconds),
+};
+
+// ─── Default values — prevent "no data" in Grafana on first scrape ────────────
+// These ensure alert expressions evaluate (as 0) rather than returning no data
+authorityMismatch.set({ account: "init", expected_authority: "init", actual_authority: "init" }, 0);
+keystoreAlgoValid.set({ node_id: "init" }, 1);
+indexerLagSeconds.set({ indexer: "default", cluster: CLUSTER }, 0);
+
 // ─── Hono App ─────────────────────────────────────────────────────────────────
 
 const app = new Hono();
@@ -439,6 +524,17 @@ async function runScrape(): Promise<void> {
 
 setInterval(runScrape, SCRAPE_INTERVAL_MS);
 runScrape().catch(console.error);
+
+
+// ─── Graceful Shutdown ────────────────────────────────────────────────────────
+process.on("SIGTERM", () => {
+  console.log("[solana-exporter] SIGTERM received — shutting down gracefully");
+  process.exit(0);
+});
+process.on("SIGINT", () => {
+  console.log("[solana-exporter] SIGINT received — shutting down");
+  process.exit(0);
+});
 
 serve({ fetch: app.fetch, port: PORT }, () => {
   console.log(
