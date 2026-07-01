@@ -440,3 +440,102 @@ TRANSACTION FEE WINS:
 [ ] Simulate before send — catch failures before spending fees
 [ ] Use versioned transactions + ALTs for batch operations (fewer accounts = lower fees)
 ```
+
+---
+
+## Prometheus Cardinality Management
+
+Cardinality is the #1 hidden cost driver in Prometheus. Each unique combination of label values = one time series. 1 metric with 1000 label values = 1000 series. At 10M series, Prometheus OOMs.
+
+```typescript
+// BAD — causes cardinality explosion
+// Never label with unbounded values
+metrics.counter('solana_tx_processed', {
+  signature: txSignature,    // ❌ unique per tx — explodes to millions
+  wallet: userWallet,        // ❌ unique per user — explodes
+  timestamp: Date.now(),     // ❌ unique per second
+});
+
+// GOOD — bounded label cardinality
+metrics.counter('solana_tx_processed', {
+  program_id: programId.toBase58().slice(0, 8),  // ✅ bounded (your programs only)
+  instruction: 'stake',                            // ✅ bounded (enum of instructions)
+  status: 'success',                               // ✅ bounded (success/failed)
+  cluster: 'mainnet-beta',                         // ✅ bounded (mainnet/devnet)
+});
+```
+
+**Cardinality audit query:**
+```promql
+# Find your top 20 highest-cardinality metrics
+topk(20, count by (__name__)({__name__=~".+"}))
+
+# Find metrics with label explosion risk (> 1000 unique values per label)
+count by (__name__, label_name) (
+  {__name__=~"solana.*"}
+) > 1000
+```
+
+**Cardinality budget rules:**
+- Total active series < 500K for a single Prometheus instance
+- No single label should exceed 100 unique values
+- Drop high-cardinality labels via `metric_relabel_configs` before they hit storage
+
+```yaml
+# deploy/prometheus.yml — drop high-cardinality labels at scrape time
+- job_name: "solana-exporter"
+  metric_relabel_configs:
+    # Drop per-transaction signature labels entirely
+    - source_labels: [tx_signature]
+      regex: ".+"
+      action: labeldrop
+    # Drop raw wallet addresses — use truncated alias instead
+    - source_labels: [wallet_address]
+      regex: ".+"
+      action: labeldrop
+    # Drop any metric with > 10K series (safety circuit breaker)
+    - source_labels: [__name__]
+      regex: "solana_tx_signature.*|solana_user_wallet.*"
+      action: drop
+```
+
+---
+
+## Prometheus Retention Policy
+
+Retention is the second biggest cost driver. Default is 15 days — most teams need 30-90 days for SLO reviews.
+
+```yaml
+# deploy/docker-compose.yml — Prometheus retention config
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"     # Keep 30 days of data
+      - "--storage.tsdb.retention.size=20GB"    # Hard cap — never exceed disk
+      - "--storage.tsdb.wal-compression"        # Compress WAL (~50% savings)
+      - "--web.enable-lifecycle"                # Allow hot-reload via API
+```
+
+**Retention tier strategy:**
+
+| Tier | Retention | Tool | Cost | Use for |
+|---|---|---|---|---|
+| Hot | 15 days | Local Prometheus | Low | Active alerting, current dashboards |
+| Warm | 90 days | Thanos / Cortex | Medium | SLO reviews, incident analysis |
+| Cold | 1 year+ | Grafana Cloud / S3 | Low | Compliance, annual trends |
+
+```bash
+# Estimate storage needed for your retention policy
+# Formula: series_count × bytes_per_sample × samples_per_second × retention_seconds
+python3 -c "
+series = 50_000           # Your active series count
+bytes_per_sample = 1.5    # Prometheus average
+samples_per_sec = series / 15  # Default 15s scrape interval
+retention_days = 30
+total_gb = (series * bytes_per_sample * samples_per_sec * retention_days * 86400) / 1e9
+print(f'Estimated storage: {total_gb:.1f} GB for {retention_days}d at {series:,} series')
+"
+```
