@@ -81,3 +81,51 @@ const nextPayer = () => POOL[idx++ % POOL.length];
 - [ ] Root cause documented
 - [ ] Refill threshold reviewed (consider raising P1 alert to 1 SOL)
 - [ ] If spike: CU optimization reviewed to reduce tx count
+
+---
+
+## Fee Payer Pool — Production Pattern
+
+When a single fee payer exhausts repeatedly, rotate across a pool of funded wallets:
+
+```typescript
+// services/fee-payer-pool.ts
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
+
+const MIN_BALANCE_SOL = 0.5;
+
+const POOL = [
+  Keypair.fromSecretKey(bs58.decode(process.env.FEE_PAYER_1!)),
+  Keypair.fromSecretKey(bs58.decode(process.env.FEE_PAYER_2!)),
+  Keypair.fromSecretKey(bs58.decode(process.env.FEE_PAYER_3!)),
+];
+
+let idx = 0;
+
+export async function getHealthyFeePayer(connection: Connection): Promise<Keypair> {
+  for (let attempts = 0; attempts < POOL.length; attempts++) {
+    const payer = POOL[idx % POOL.length];
+    idx++;
+    const balance = await connection.getBalance(payer.publicKey);
+    if (balance / 1e9 >= MIN_BALANCE_SOL) return payer;
+  }
+  throw new Error('All fee payers below minimum balance — top up required');
+}
+```
+
+---
+
+## Automated Refill via Cron (Prometheus Alerting Rule)
+
+```yaml
+# Add to alerts.yml — fires before balance reaches critical
+- alert: FeePayerRefillNeeded
+  expr: solana_fee_payer_balance_sol < 2
+  for: 10m
+  labels:
+    severity: info
+  annotations:
+    summary: "Fee payer {{ $labels.address }} below 2 SOL — schedule top-up"
+    description: "Proactive refill recommended. Current: {{ $value }} SOL. Prevents P1 alert."
+```
