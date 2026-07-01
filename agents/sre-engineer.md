@@ -240,3 +240,97 @@ If not resolved within [TIME]:
 ```
 
 
+
+---
+
+## Alertmanager Inhibition Rules
+
+Prevent alert storms: when a P0 fires, suppress related P1/P2 alerts that are downstream effects:
+
+```yaml
+# alertmanager.yml — inhibit_rules section
+inhibit_rules:
+  # If RPC is down, suppress all downstream alerts (they're all caused by RPC)
+  - source_matchers:
+      - alertname = "RPCDegraded"
+      - severity = "critical"
+    target_matchers:
+      - severity =~ "warning|info"
+    equal: [job]
+
+  # If fee payer is P0, suppress the P1 low-balance alert (redundant)
+  - source_matchers:
+      - alertname = "FeePayerEmpty"
+    target_matchers:
+      - alertname = "FeePayerBalanceLow"
+    equal: [fee_payer]
+
+  # If program is paused, suppress all program-metric alerts
+  - source_matchers:
+      - alertname = "ProgramPaused"
+    target_matchers:
+      - alertname =~ "TxSuccessRateLow|CUBudgetExceeded|InstructionErrorSpike"
+    equal: [program_id]
+```
+
+---
+
+## On-Call Rotation Config (PagerDuty-compatible)
+
+```yaml
+# pagerduty-schedule.yml — import via PagerDuty API
+schedules:
+  - name: "Solana Protocol On-Call"
+    time_zone: "UTC"
+    layers:
+      - name: "Primary"
+        rotation_type: "weekly"
+        handoff_time: "2026-01-06T09:00:00Z"  # Monday 9am UTC
+        users:
+          - <ENGINEER_1_PAGERDUTY_ID>
+          - <ENGINEER_2_PAGERDUTY_ID>
+          - <ENGINEER_3_PAGERDUTY_ID>
+
+escalation_policies:
+  - name: "Solana P0 Escalation"
+    rules:
+      - escalation_delay_in_minutes: 5
+        targets: [{ type: "schedule", id: "<PRIMARY_SCHEDULE_ID>" }]
+      - escalation_delay_in_minutes: 10
+        targets: [{ type: "user", id: "<PROTOCOL_LEAD_PD_ID>" }]
+      - escalation_delay_in_minutes: 20
+        targets: [{ type: "user", id: "<CTO_PD_ID>" }]
+```
+
+---
+
+## DePIN-Specific Runbook Trigger Logic
+
+When observability signals indicate DePIN-specific issues, route to cross-skill runbooks:
+
+```typescript
+// alert-router.ts — maps alert names to runbooks across skills
+const RUNBOOK_ROUTING: Record<string, string> = {
+  // Observability-native runbooks
+  'FeePayerBalanceLow':        'runbooks/fee-payer-low.md',
+  'IndexerLagHigh':            'runbooks/indexer-lag.md',
+  'RPCDegraded':               'runbooks/rpc-degradation.md',
+  'TxSuccessRateLow':          'runbooks/transaction-success-rate-low.md',
+  'ProgramUpgradeDetected':    'runbooks/program-upgrade-detected.md',
+  'WalletErrorSpike':          'runbooks/wallet-error-spike.md',
+  'WalletDrainDetected':       'runbooks/wallet-drain-detected.md',
+  
+  // Cross-skill routing (DePIN events)
+  'DePINNodeFleetOffline':     'solana-depin-builder-skill/runbooks/coverage-drift.md',
+  'DePINOracleAnomaly':        'solana-depin-builder-skill/runbooks/oracle-failure.md',
+  'DePINRogueNodeDetected':    'solana-depin-builder-skill/runbooks/rogue-node-detected.md',
+  
+  // Cross-skill routing (Incident Response)
+  'UnauthorizedProgramUpgrade':'solana-incident-response-skill/runbooks/unauthorized-upgrade.md',
+  'GovernanceAttack':          'solana-incident-response-skill/runbooks/governance-attack.md',
+};
+
+function getRunbook(alertName: string): string {
+  return RUNBOOK_ROUTING[alertName] ?? 'runbooks/unknown-alert.md';
+}
+```
