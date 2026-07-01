@@ -276,3 +276,202 @@ export interface WalletDrainerSpikeSignal {
   // → Drainer Contract Deep Analysis → Pattern Detection
 }
 ```
+
+---
+
+## Argon2id Keystore Monitoring
+
+Operator wallets encrypted with password-derived keys must use Argon2id. Monitoring validates both the algorithm in use and whether derivation parameters meet minimum security thresholds.
+
+```typescript
+// scripts/validate-keystore-algo.ts
+// Run as part of node onboarding verification or periodic audit
+import * as fs from 'fs';
+
+interface KeystoreHeader {
+  kdf: string;
+  kdfparams: {
+    type?: string;        // For Argon2: should be "argon2id"
+    memoryCost?: number;  // Must be >= 65536 (64MB)
+    timeCost?: number;    // Must be >= 3
+    parallelism?: number; // Must be >= 4
+    n?: number;           // For scrypt (legacy) — flag for review
+  };
+}
+
+function validateKeystoreAlgo(keystorePath: string): {
+  valid: boolean; algorithm: string; warnings: string[];
+} {
+  const ks = JSON.parse(fs.readFileSync(keystorePath, 'utf-8')) as KeystoreHeader;
+  const warnings: string[] = [];
+
+  if (ks.kdf !== 'argon2') {
+    warnings.push(`KDF is '${ks.kdf}' — must be 'argon2' (Argon2id)`);
+  }
+  if (ks.kdf === 'argon2' && ks.kdfparams.type !== 'argon2id') {
+    warnings.push(`Argon2 type '${ks.kdfparams.type}' — must be 'argon2id' (not argon2i or argon2d)`);
+  }
+  if ((ks.kdfparams.memoryCost ?? 0) < 65536) {
+    warnings.push(`memoryCost ${ks.kdfparams.memoryCost} < 65536 (64MB minimum) — GPU-attackable`);
+  }
+  if ((ks.kdfparams.timeCost ?? 0) < 3) {
+    warnings.push(`timeCost ${ks.kdfparams.timeCost} < 3 — brute-force risk`);
+  }
+
+  return { valid: warnings.length === 0, algorithm: ks.kdf, warnings };
+}
+
+// Prometheus metric to expose
+// solana_keystore_algo_valid{node_id="..."} 1|0
+// Alert: solana_keystore_algo_valid == 0 → P1
+```
+
+**Prometheus alert rule:**
+```yaml
+- alert: KeystoreAlgorithmWeak
+  expr: solana_keystore_algo_valid == 0
+  for: 0m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Node keystore using weak KDF algorithm"
+    description: "Node {{ $labels.node_id }} keystore is not using Argon2id with secure parameters. Rotate immediately."
+```
+
+---
+
+## HD Gap Limit Monitoring
+
+During wallet restoration from seed, standard BIP44 derivation stops scanning after 20 consecutive empty accounts (the gap limit). Without monitoring, operators can silently "lose" funded accounts created with non-sequential indices.
+
+```typescript
+// services/wallet-monitor/hd-gap-scanner.ts
+import { Connection, Keypair } from '@solana/web3.js';
+import { derivePath } from 'ed25519-hd-key';
+import * as bip39 from 'bip39';
+
+const GAP_LIMIT = 20;  // BIP44 standard
+
+interface ScanResult {
+  totalScanned: number;
+  fundedAccounts: Array<{ index: number; pubkey: string; balanceLamports: number }>;
+  maxNonEmptyIndex: number;
+  gapLimitSafe: boolean;  // true if no funded accounts near the gap limit
+}
+
+async function scanHDGapLimit(
+  connection: Connection,
+  mnemonic: string,
+  scanDepth: number = 50,  // Scan beyond standard gap limit for safety
+): Promise<ScanResult> {
+  const seed = await bip39.mnemonicToSeed(mnemonic);
+  const funded: ScanResult['fundedAccounts'] = [];
+  let emptyRun = 0;
+  let i = 0;
+
+  while (i < scanDepth) {
+    const { key } = derivePath(`m/44'/501'/${i}'/0'`, seed.toString('hex'));
+    const kp = Keypair.fromSeed(key);
+    const balance = await connection.getBalance(kp.publicKey);
+
+    if (balance > 0) {
+      funded.push({ index: i, pubkey: kp.publicKey.toBase58(), balanceLamports: balance });
+      emptyRun = 0;
+    } else {
+      emptyRun++;
+      if (emptyRun >= GAP_LIMIT && i >= GAP_LIMIT) break;
+    }
+    i++;
+  }
+
+  const maxIdx = funded.length > 0 ? Math.max(...funded.map(f => f.index)) : -1;
+  return {
+    totalScanned: i,
+    fundedAccounts: funded,
+    maxNonEmptyIndex: maxIdx,
+    gapLimitSafe: maxIdx < scanDepth - GAP_LIMIT - 5,  // Safe margin
+  };
+}
+
+// Metric: solana_hd_gap_funded_accounts_total{operator="..."} N
+// Alert: If funded accounts found at indices > 30 → operator may have missed accounts on restore
+```
+
+**Prometheus alert rule:**
+```yaml
+- alert: HDGapLimitRisk
+  expr: solana_hd_gap_max_funded_index > 30
+  for: 0m
+  labels:
+    severity: warning
+  annotations:
+    summary: "HD wallet has funded accounts near gap limit"
+    description: "Operator {{ $labels.operator }} has funded accounts at index {{ $value }}. Standard restore tools may miss these."
+```
+
+---
+
+## Key Rotation Detection Alerts
+
+Monitor for authority changes across all critical accounts. Planned rotations are expected — unplanned ones are P0 security events.
+
+```typescript
+// services/authority-monitor.ts
+import { Connection, PublicKey } from '@solana/web3.js';
+
+interface AuthoritySnapshot {
+  account: string;
+  authority: string | null;
+  capturedSlot: number;
+}
+
+async function monitorAuthorityChanges(
+  connection: Connection,
+  watchList: Array<{ name: string; pubkey: PublicKey; expectedAuthority: string }>,
+  onchange: (name: string, old: string, current: string) => void,
+): Promise<void> {
+  const cache = new Map<string, string | null>();
+
+  setInterval(async () => {
+    for (const { name, pubkey, expectedAuthority } of watchList) {
+      const info = await connection.getAccountInfo(pubkey);
+      if (!info) continue;
+
+      // For mint accounts: authority is at offset 4 (32 bytes)
+      const currentAuthority = info.data.slice(4, 36).toString('hex');
+      const known = cache.get(name);
+
+      if (known !== undefined && known !== currentAuthority) {
+        onchange(name, known ?? 'null', currentAuthority);
+        // Emit metric: solana_authority_change_total{account="...",expected="..."} += 1
+      }
+      cache.set(name, currentAuthority);
+
+      if (currentAuthority !== Buffer.from(new PublicKey(expectedAuthority).toBytes()).toString('hex')) {
+        // Alert: authority differs from expected
+        // solana_authority_mismatch{account=name} = 1
+      }
+    }
+  }, 30_000);  // Poll every 30 seconds
+}
+```
+
+**Prometheus alert rules:**
+```yaml
+- alert: AuthorityChangedUnexpected
+  expr: increase(solana_authority_change_total[5m]) > 0
+  labels:
+    severity: critical
+  annotations:
+    summary: "Account authority changed — verify this was planned"
+    description: "Authority on {{ $labels.account }} changed. If unplanned: execute wallet-drain-detected runbook."
+
+- alert: AuthorityMismatch
+  expr: solana_authority_mismatch == 1
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Account authority does not match expected value"
+    description: "{{ $labels.account }} authority is not the expected Squads multisig. Immediate investigation required."
+```
