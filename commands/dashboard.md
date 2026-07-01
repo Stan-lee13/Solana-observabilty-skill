@@ -107,3 +107,66 @@ curl -X POST http://admin:${GRAFANA_PASSWORD}@localhost:3000/api/dashboards/impo
   -H "Content-Type: application/json" \
   -d "{\"dashboard\": $(cat deploy/grafana/dashboards/solana-program-monitoring.json), \"overwrite\": true, \"folderId\": 0}"
 ```
+
+---
+
+## Grafana Dashboard Variables (Template)
+
+```json
+{
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "custom",
+        "options": [
+          { "value": "mainnet-beta", "text": "Mainnet" },
+          { "value": "devnet", "text": "Devnet" }
+        ]
+      },
+      {
+        "name": "program_id",
+        "type": "query",
+        "query": "label_values(solana_transaction_total, program_id)"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Panel 5: Active Alerts Table
+
+```json
+{
+  "title": "Active Alerts",
+  "type": "table",
+  "targets": [{
+    "expr": "ALERTS{job=~\"solana.*\"}",
+    "legendFormat": "{{ alertname }}"
+  }],
+  "transformations": [
+    { "id": "filterByValue", "options": { "filters": [{ "fieldName": "Value", "config": { "operator": { "value": 1 } } }] } }
+  ]
+}
+```
+
+---
+
+## Panel 6: Indexer Lag Heatmap
+
+```promql
+# Heatmap of indexer lag spikes over time
+max_over_time(solana_indexer_lag_seconds[5m])
+```
+
+---
+
+## Review Checklist Before Publishing
+
+- [ ] All panels have units set (not raw numbers)
+- [ ] All panels have thresholds set (red/yellow/green)
+- [ ] Runbook links in alert annotations point to valid URLs
+- [ ] No raw wallet addresses or API keys in panel queries
+- [ ] Dashboard saved with version comment
