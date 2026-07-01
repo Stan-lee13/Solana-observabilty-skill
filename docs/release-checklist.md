@@ -1,47 +1,96 @@
-# Release Checklist
+# Release Checklist — Observability Stack
 
-Use this checklist before publishing or installing a new version of the Solana observability skill.
+Run this checklist before every production deployment of the monitoring stack.
 
-## Repository Quality
+---
 
-- [ ] No TODOs, fake dashboard IDs, or accidental example credentials.
-- [ ] Agent routing in `CLAUDE.md`, `README.md`, and `skill/SKILL.md` is consistent.
-- [ ] Metric names match `rules/monitoring-rules.md`.
-- [ ] P0/P1 alerts link to runbooks.
-- [ ] Public examples do not expose API-key-bearing RPC URLs.
-- [ ] Dashboard JSON is committed and validates.
+## Pre-Release (before deploying)
 
-## Deploy Stack
-
-- [ ] `docker compose config` passes in `deploy/`.
-- [ ] Exporter image builds.
-- [ ] Exporter `/live`, `/ready`, `/healthz`, and `/metrics` respond.
-- [ ] Prometheus loads `prometheus.yml` and `alerts.yml`.
-- [ ] Grafana provisions datasource and dashboard.
-- [ ] No default secret is suitable for production; README calls this out.
-
-## Validation Commands
+### Validate configuration files
 
 ```bash
-python -m json.tool deploy/grafana/dashboards/solana-infrastructure.json
-cd deploy/solana-exporter && npm install && npm run build
-cd ../.. && docker compose -f deploy/docker-compose.yml config
-```
-
-If available:
-
-```bash
-promtool check config deploy/prometheus.yml
+# 1. Prometheus rules
 promtool check rules deploy/alerts.yml
+echo "Exit: $? (0=OK)"
+
+# 2. Alertmanager config
+amtool config routes show --config.file=deploy/alertmanager.yml
+amtool config check --config.file=deploy/alertmanager.yml
+
+# 3. Docker Compose syntax
+docker compose -f deploy/docker-compose.yml config --quiet
+echo "Exit: $? (0=OK)"
+
+# 4. Prometheus config
+docker run --rm -v $(pwd)/deploy:/etc/prometheus \
+  prom/prometheus:latest \
+  promtool check config /etc/prometheus/prometheus.yml
 ```
 
-## Release Notes
+### Verify exporter is collecting correctly
 
-Document changes to:
+```bash
+# Spin up stack against devnet
+SOLANA_CLUSTER=devnet docker compose -f deploy/docker-compose.yml up -d
 
-- metric names or labels
-- alert thresholds or severities
-- runbook procedures
-- dashboard visibility
-- install path or deploy stack
-- external provider recommendations
+# Wait for first scrape
+sleep 15
+
+# Confirm key metrics are present
+curl -s http://localhost:9090/api/v1/query \
+  --data-urlencode 'query=solana_rpc_healthy' \
+  | python3 -c "
+import json,sys
+r=json.load(sys.stdin)['data']['result']
+print(f'solana_rpc_healthy: {\"✅ Present\" if r else \"❌ MISSING\"}')"
+
+curl -s http://localhost:9090/api/v1/query \
+  --data-urlencode 'query=solana_fee_payer_balance_sol' \
+  | python3 -c "
+import json,sys
+r=json.load(sys.stdin)['data']['result']
+print(f'solana_fee_payer_balance_sol: {\"✅ Present\" if r else \"❌ MISSING\"}')"
+```
+
+---
+
+## Deployment
+
+```bash
+# Pull latest images and restart with zero-downtime rolling update
+docker compose -f deploy/docker-compose.yml pull
+docker compose -f deploy/docker-compose.yml up -d --remove-orphans
+
+# Verify all containers healthy
+docker compose -f deploy/docker-compose.yml ps
+```
+
+---
+
+## Post-Release (within 30 minutes)
+
+- [ ] All containers show `healthy` status
+- [ ] Prometheus targets page shows all jobs UP: http://localhost:9090/targets
+- [ ] Grafana dashboards loading without errors: http://localhost:3000
+- [ ] Test alert fires and routes to correct receiver
+- [ ] Run e2e validation: `bash scripts/e2e-validate.sh`
+- [ ] Confirm no alert noise (false positives) in first 15 minutes
+
+```bash
+# Quick health check post-deploy
+curl -sf http://localhost:9090/-/healthy && echo "Prometheus: ✅"
+curl -sf http://localhost:3000/api/health && echo "Grafana: ✅"
+curl -sf http://localhost:9093/-/healthy && echo "Alertmanager: ✅"
+curl -sf http://localhost:9090/metrics | grep -q "up 1" && echo "Exporter: ✅"
+```
+
+---
+
+## Rollback
+
+```bash
+# If any check fails — rollback to previous image tags
+docker compose -f deploy/docker-compose.yml down
+git stash  # or: git checkout <previous-commit>
+docker compose -f deploy/docker-compose.yml up -d
+```
