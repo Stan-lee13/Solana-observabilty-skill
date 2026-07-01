@@ -488,3 +488,94 @@ async function logToAnalytics(engine: AnalyticsEngineDataset, data: any) {
 - [Yellowstone gRPC for streaming](https://github.com/rpcpool/yellowstone-grpc)
 - [Prometheus Node.js client](https://github.com/siimon/prom-client)
 - [OpenTelemetry JS](https://opentelemetry.io/docs/instrumentation/js/)
+
+---
+
+## Host-Level Monitoring — node_exporter
+
+RPC monitoring alone misses the OS layer. A Solana validator or crank service running on depleted RAM or 100% disk will fail silently if you only watch the RPC.
+
+```yaml
+# deploy/prometheus.yml — node_exporter scrape job
+- job_name: "node-exporter"
+  static_configs:
+    - targets: ["node-exporter:9100"]
+      labels:
+        host: "${HOSTNAME:-solana-host}"
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: instance
+      regex: "([^:]+).*"
+      replacement: "$1"
+```
+
+**Key node_exporter alert rules:**
+
+```yaml
+- alert: HostHighCPU
+  expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+  for: 5m
+  labels: { severity: warning }
+  annotations:
+    summary: "Host {{ $labels.instance }} CPU {{ $value | humanize }}% — may impact cranker throughput"
+
+- alert: HostLowDisk
+  expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.10
+  for: 1m
+  labels: { severity: critical }
+  annotations:
+    summary: "Host {{ $labels.instance }} disk < 10% — Prometheus retention at risk"
+
+- alert: HostLowMemory
+  expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+  for: 5m
+  labels: { severity: warning }
+  annotations:
+    summary: "Host {{ $labels.instance }} memory < 10% available"
+
+- alert: HostHighIOWait
+  expr: avg by(instance) (rate(node_cpu_seconds_total{mode="iowait"}[5m])) * 100 > 20
+  for: 5m
+  labels: { severity: warning }
+  annotations:
+    summary: "High IO wait on {{ $labels.instance }} — disk bottleneck likely"
+```
+
+---
+
+## Running the Full Stack with Docker Compose
+
+```bash
+# Clone and start (from repo root)
+git clone https://github.com/Stan-lee13/Solana-observabilty-skill
+cd Solana-observabilty-skill
+
+# Configure environment
+cp deploy/.env.example deploy/.env
+# Edit deploy/.env: set RPC_URL, FEE_PAYER_PUBKEY, DISCORD_WEBHOOK_URL
+
+# Start all services
+docker compose -f deploy/docker-compose.yml up -d
+
+# Verify all containers are healthy
+docker compose -f deploy/docker-compose.yml ps
+# Expected: solana-exporter, prometheus, grafana, alertmanager all "healthy"
+
+# Check Prometheus targets (all should be UP)
+open http://localhost:9090/targets
+
+# Access Grafana dashboards
+open http://localhost:3000  # admin / admin (change immediately)
+```
+
+**Docker Compose service map:**
+
+| Service | Port | Purpose |
+|---|---|---|
+| solana-exporter | 9090 | Solana-specific metrics (RPC, tx, fee payer) |
+| prometheus | 9090 (internal) | Metrics storage + alert evaluation |
+| grafana | 3000 | Dashboard visualization |
+| alertmanager | 9093 | Alert routing to PagerDuty/Discord |
+| node-exporter | 9100 | Host CPU/mem/disk metrics |
+| blackbox-exporter | 9115 | HTTP probe for synthetic monitoring |
+| loki | 3100 | Log aggregation |
