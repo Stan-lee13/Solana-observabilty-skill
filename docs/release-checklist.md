@@ -94,3 +94,34 @@ docker compose -f deploy/docker-compose.yml down
 git stash  # or: git checkout <previous-commit>
 docker compose -f deploy/docker-compose.yml up -d
 ```
+
+---
+
+## Notification Test
+
+```bash
+# Fire a test alert through the full pipeline
+curl -X POST http://localhost:9093/api/v1/alerts \
+  -H "Content-Type: application/json" \
+  -d '[{
+    "labels": { "alertname": "TestRelease", "severity": "info", "env": "staging" },
+    "annotations": { "summary": "Release validation alert — ignore" },
+    "startsAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }]'
+# Verify it appears in Discord/Slack within 60 seconds
+# Then silence it:
+amtool silence add alertname="TestRelease" --comment "Release test" \
+  --duration 1h --alertmanager.url http://localhost:9093
+```
+
+---
+
+## Rollback Decision Matrix
+
+| Condition observed | Action |
+|---|---|
+| Exporter not scraping | Check container logs: `docker logs solana-exporter` |
+| Alert rules not loading | `promtool check rules` output in CI was ignored — fix and redeploy |
+| Grafana dashboards blank | Datasource URL wrong in provisioning — update `.env` and restart |
+| Alertmanager not routing | Run `amtool config check` — fix YAML errors |
+| Any P0 alert fires post-deploy | Rollback immediately, investigate in staging |
