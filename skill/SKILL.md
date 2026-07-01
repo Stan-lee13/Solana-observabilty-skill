@@ -114,6 +114,7 @@ Use this skill when the user asks for:
 | Security / Threat | Authority changes, probe patterns, drain detection | [security-observability.md](security-observability.md) |
 | Synthetic / Canary | Probe transactions, health canaries, end-to-end | [synthetic-monitoring.md](synthetic-monitoring.md) |
 | Cost Optimization | RPC credits, CU budgets, Helius billing | [cost-optimization.md](cost-optimization.md) |
+| Wallet Observability | SLOs, privacy-safe analytics, HD gap limit monitoring, key-rotation alerts | [wallet-observability.md](wallet-observability.md) |
 
 ### 2. Pick the Right Agent
 
