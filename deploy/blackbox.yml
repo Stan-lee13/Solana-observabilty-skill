@@ -1,0 +1,41 @@
+# deploy/blackbox.yml — blackbox exporter config for synthetic probes
+# Referenced by: skill/synthetic-monitoring.md, deploy/prometheus.yml
+
+modules:
+  # Standard HTTP 2xx probe
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      follow_redirects: true
+      preferred_ip_protocol: "ip4"
+
+  # Solana RPC health probe — expects {"result":"ok"}
+  solana_rpc_health:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
+      fail_if_body_not_matches_regexp:
+        - '"result":"ok"'
+
+  # JSON RPC probe — checks slot is advancing
+  solana_slot_advancing:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{"jsonrpc":"2.0","id":1,"method":"getSlot"}'
+      fail_if_body_not_matches_regexp:
+        - '"result":[0-9]+'
