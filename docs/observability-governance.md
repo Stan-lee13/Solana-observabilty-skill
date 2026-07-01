@@ -1,43 +1,115 @@
 # Observability Governance
 
-This document defines ownership, change control, deprecation, and review processes for observability artifacts (metrics, dashboards, alerts, runbooks, and retention policies).
+Framework for owning, reviewing, and evolving the Solana observability stack across teams.
 
-## Owners and Stewardship
+---
 
-- Each metric, dashboard, alert, and runbook must declare a single `owner` (team or individual) and at least one backup reviewer.
-- Owners are responsible for quarterly reviews, on-call alignment, and responding to P0/P1 incidents.
-- Owners must maintain a short README for their owned artifacts describing purpose, inputs, and upgrade path.
+## Ownership Model
 
-## Change Control Process
+| Layer | Owner | Reviewers | Cadence |
+|---|---|---|---|
+| Alert rules (alerts.yml) | SRE Lead | Protocol Lead | Monthly |
+| Dashboard panels | Data Viz Engineer | Product + Ops | Quarterly |
+| Runbooks | On-call rotation | Incident Commander | After every P0/P1 |
+| SLO targets | Protocol Lead | Engineering Lead | Quarterly |
+| Cost budget (RPC, storage) | SRE Lead | Finance | Monthly |
 
-1. Open a PR describing the change and its impact on SLOs, cardinality, and cost.
-2. Include CI validation evidence (promtool, Grafana JSON lint, Terraform plan where applicable).
-3. Notify owners of dependent artifacts (dashboards, runbooks) via PR reviewers.
-4. For critical alert or SLO changes, require at least two approvers: `sre-engineer` and `monitoring-engineer`.
-5. Deploy changes from the repository; do not edit production dashboards directly in the Grafana UI.
+---
 
-## Deprecation & Backwards Compatibility
+## SLO Review Process
 
-- Renaming a metric requires a 4-step deprecation: provide adapter (emit both names), update dashboards and alerts to use new name, monitor adapter for errors for at least one release, remove old name after a deprecation window (e.g., 90 days).
-- Deprecation decisions must be documented in PR and include migration steps for external consumers.
+Run this script monthly to compare actual vs target:
 
-## Review Cadence
+```bash
+#!/bin/bash
+# scripts/slo-review.sh — monthly SLO compliance report
 
-- Quarterly review for SLOs, alerting thresholds, and retention policies.
-- Immediate review after any P0 incident with follow-up action items.
-- Annual review of providers and cost optimization plans.
+PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:9090}"
+REPORT_DATE=$(date +%Y-%m)
 
-## Audit & Compliance
+echo "=== SLO COMPLIANCE REPORT — $REPORT_DATE ==="
+echo ""
 
-- Maintain a changelog of monitoring-related PRs and reviewers.
-- Store long-lived evidence (runbooks, postmortems) in this repository or approved document storage.
-- Periodically (quarterly) export dashboard metadata and validate that required fields (`owner`, `audience`, `slo_links`) exist.
+# Tx success rate — target 99.9%
+ACTUAL_SUCCESS=$(curl -s "$PROMETHEUS_URL/api/v1/query" \
+  --data-urlencode 'query=avg_over_time(
+    (sum(rate(solana_transaction_total{status="success"}[5m])) /
+     sum(rate(solana_transaction_total[5m])))[30d:5m])' \
+  | python3 -c "import json,sys; r=json.load(sys.stdin)['data']['result']; print(f'{float(r[0][\"value\"][1])*100:.3f}%' if r else 'NO DATA')")
+echo "Tx Success Rate (30d avg): $ACTUAL_SUCCESS  [target: 99.9%]"
 
-## Exceptions
+# RPC health — target 99.5% healthy
+ACTUAL_RPC=$(curl -s "$PROMETHEUS_URL/api/v1/query" \
+  --data-urlencode 'query=avg_over_time(solana_rpc_healthy[30d])' \
+  | python3 -c "import json,sys; r=json.load(sys.stdin)['data']['result']; print(f'{float(r[0][\"value\"][1])*100:.2f}%' if r else 'NO DATA')")
+echo "RPC Healthy (30d avg):     $ACTUAL_RPC  [target: 99.5%]"
 
-- Rare emergency changes are allowed with post-facto PR and retrospective review.
-- Any exception must be justified in the PR description and approved by on-call lead.
+# Error budget remaining
+echo ""
+echo "--- Error Budget Status ---"
+curl -s "$PROMETHEUS_URL/api/v1/query" \
+  --data-urlencode 'query=(1 - avg_over_time(
+    (sum(rate(solana_transaction_total{status="success"}[5m])) /
+     sum(rate(solana_transaction_total[5m])))[30d:5m])) / (1 - 0.999)' \
+  | python3 -c "
+import json,sys
+r=json.load(sys.stdin)['data']['result']
+if r:
+    consumed=float(r[0]['value'][1])*100
+    print(f'Budget consumed: {consumed:.1f}%  Remaining: {100-consumed:.1f}%')
+    if consumed > 80: print('⚠ WARNING: >80% budget consumed — freeze non-essential changes')
+    if consumed > 100: print('🚨 BREACH: SLO violated this month')
+"
+```
 
-***
+---
 
-This governance file should be included in onboarding and used by reviewers to gate observability-related changes.
+## Alert Rule Change Process
+
+```bash
+# Before merging any change to alerts.yml:
+# 1. Validate syntax
+promtool check rules deploy/alerts.yml
+
+# 2. Test alert expression against real data
+promtool query instant http://localhost:9090 \
+  'sum(rate(solana_transaction_total{status="success"}[5m])) / sum(rate(solana_transaction_total[5m])) < 0.90'
+
+# 3. Test alertmanager routing
+amtool config routes test \
+  --config.file=deploy/alertmanager.yml \
+  alertname="TxSuccessRateLow" severity="critical"
+
+# 4. Dry-run in staging for 24h before promoting to production
+```
+
+---
+
+## On-Call Rotation Review Checklist
+
+Run after every P0 or P1 incident:
+
+- [ ] Runbook followed correctly — if not, update runbook
+- [ ] Alert fired at the right time — if too late, tighten threshold
+- [ ] Alert fired too early (false positive) — if so, extend `for:` duration
+- [ ] Missing alert for this failure mode — add new rule
+- [ ] Time-to-mitigate > target — identify the bottleneck step
+- [ ] Post-mortem published within 72 hours
+- [ ] Action items assigned with owners and due dates
+
+---
+
+## Dashboard Review Checklist (Quarterly)
+
+```bash
+# Find unused dashboard panels (no queries fired in 30 days)
+curl -s "http://admin:$GRAFANA_PASSWORD@localhost:3000/api/dashboards/home" \
+  | python3 -c "import json,sys; ds=json.load(sys.stdin); print(f'{len(ds)} dashboards')"
+
+# Check for stale alert annotations (pointing to deleted runbooks)
+grep -r 'runbook_url' deploy/alerts.yml | while read line; do
+  url=$(echo $line | grep -oP 'https?://\S+')
+  status=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+  [ "$status" != "200" ] && echo "⚠ Stale runbook link: $url (HTTP $status)"
+done
+```
