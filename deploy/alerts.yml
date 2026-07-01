@@ -112,3 +112,92 @@ groups:
         annotations:
           summary: "Program upgrade detected for {{ $labels.program_id }}"
           description: "A monitored program emitted an upgrade/data hash change signal. Verify immediately."
+
+      # ── Indexer ──────────────────────────────────────────────────────
+      - alert: SolanaIndexerLagHigh
+        expr: solana_indexer_lag_seconds > 300
+        for: 3m
+        labels:
+          severity: warning
+          runbook: runbooks/indexer-lag.md
+        annotations:
+          summary: "Indexer lag {{ $value | humanizeDuration }} on {{ $labels.job }}"
+          description: "Indexer is {{ $value }}s behind chain head. User-facing balances and claims may be stale."
+          runbook_url: "https://github.com/Stan-lee13/Solana-observabilty-skill/blob/main/runbooks/indexer-lag.md"
+
+      # ── Wallet adapter ────────────────────────────────────────────────
+      - alert: SolanaWalletErrorSpike
+        expr: |
+          sum(rate(solana_wallet_adapter_errors_total[5m])) /
+          sum(rate(solana_wallet_adapter_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          runbook: runbooks/wallet-error-spike.md
+        annotations:
+          summary: "Wallet adapter error rate {{ $value | humanizePercentage }}"
+          description: "More than 5% of wallet adapter calls are failing. Users may be unable to connect or sign."
+          runbook_url: "https://github.com/Stan-lee13/Solana-observabilty-skill/blob/main/runbooks/wallet-error-spike.md"
+
+      # ── Wallet drain (P0) ─────────────────────────────────────────────
+      - alert: SolanaWalletDrainDetected
+        expr: |
+          increase(solana_unexpected_outflow_lamports_total[5m]) > 1000000000
+        for: 0m
+        labels:
+          severity: critical
+          runbook: runbooks/wallet-drain-detected.md
+        annotations:
+          summary: "CRITICAL: Unexpected wallet outflow > 1 SOL in 5 minutes"
+          description: "Wallet {{ $labels.address }} has unexpected outflow of {{ $value | humanize }} lamports. Possible drain attack. IMMEDIATELY page Protocol Lead."
+          runbook_url: "https://github.com/Stan-lee13/Solana-observabilty-skill/blob/main/runbooks/wallet-drain-detected.md"
+
+      - alert: SolanaSetAuthoritySpike
+        expr: increase(solana_set_authority_instruction_total[5m]) > 3
+        for: 0m
+        labels:
+          severity: critical
+          runbook: runbooks/wallet-drain-detected.md
+        annotations:
+          summary: "CRITICAL: Unusual authority-change instruction spike"
+          description: "{{ $value }} setAuthority instructions in 5 minutes — possible drain or key rotation attack."
+
+      # ── Wallet security (from wallet-observability.md) ────────────────
+      - alert: SolanaKeystoreAlgoWeak
+        expr: solana_keystore_algo_valid == 0
+        for: 0m
+        labels:
+          severity: warning
+          runbook: skill/wallet-observability.md
+        annotations:
+          summary: "Node {{ $labels.node_id }} keystore not using Argon2id"
+          description: "Keystore KDF is weak. Rotate immediately using Argon2id with memoryCost>=65536, timeCost>=3."
+
+      - alert: SolanaHDGapLimitRisk
+        expr: solana_hd_gap_max_funded_index > 30
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HD wallet funded accounts near gap limit (index {{ $value }})"
+          description: "Operator {{ $labels.operator }} has funded accounts at index {{ $value }}. Standard restore tools may miss these accounts."
+
+      - alert: SolanaAuthorityMismatch
+        expr: solana_authority_mismatch == 1
+        for: 1m
+        labels:
+          severity: critical
+          runbook: runbooks/program-upgrade-detected.md
+        annotations:
+          summary: "Account {{ $labels.account }} authority does not match expected"
+          description: "Authority on {{ $labels.account }} is not the expected Squads multisig. Investigate immediately."
+
+      - alert: SolanaProgramDataHashChanged
+        expr: increase(solana_program_data_hash_changes_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          runbook: runbooks/program-upgrade-detected.md
+        annotations:
+          summary: "Program {{ $labels.program_id }} data hash changed"
+          description: "Program binary changed — verify this was a planned deployment. If not, execute emergency runbook immediately."
