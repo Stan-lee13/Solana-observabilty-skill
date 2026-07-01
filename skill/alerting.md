@@ -622,3 +622,116 @@ class AlertDeduplicator {
   }
 }
 ```
+
+---
+
+## Alertmanager — Full Configuration
+
+When an AI loads this file to configure alerting, it must be able to produce a working `alertmanager.yml`. Here is the complete production template:
+
+```yaml
+# deploy/alertmanager.yml — complete production config
+global:
+  resolve_timeout: 5m
+  pagerduty_url: https://events.pagerduty.com/v2/enqueue
+
+route:
+  group_by: [alertname, severity, job]
+  group_wait: 30s        # Wait 30s to batch related alerts into one notification
+  group_interval: 5m     # Min time between notifications for same group
+  repeat_interval: 4h    # Re-notify if alert still firing after 4h
+  receiver: default
+  routes:
+    # P0: funds at risk, authority compromise, drain detected
+    - matchers:
+        - severity = "critical"
+      receiver: pagerduty-p0
+      continue: true       # also send to Discord for team visibility
+      group_wait: 0s       # No delay for P0
+
+    # P1: degradation affecting users
+    - matchers:
+        - severity = "warning"
+      receiver: discord-warnings
+
+    # Wallet drain — override to always page immediately
+    - matchers:
+        - alertname = "SolanaWalletDrainDetected"
+      receiver: pagerduty-p0
+      group_wait: 0s
+
+receivers:
+  - name: default
+    discord_configs:
+      - webhook_url: ${DISCORD_WEBHOOK_URL}
+        title: "ℹ️ {{ .GroupLabels.alertname }}"
+
+  - name: pagerduty-p0
+    pagerduty_configs:
+      - routing_key: ${PAGERDUTY_INTEGRATION_KEY}
+        severity: critical
+        description: "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}"
+        links:
+          - href: "{{ (index .Alerts 0).Annotations.runbook_url }}"
+            text: Runbook
+
+  - name: discord-warnings
+    discord_configs:
+      - webhook_url: ${DISCORD_WEBHOOK_URL}
+        title: "⚠️ {{ .GroupLabels.alertname }}"
+        message: "{{ range .Alerts }}**{{ .Annotations.summary }}**\n{{ .Annotations.description }}\n{{ end }}"
+
+# Inhibition rules — suppress downstream alerts when root cause is firing
+# This prevents alert storms (e.g. 50 alerts when RPC is down)
+inhibit_rules:
+  # If RPC is down, ALL downstream program/tx/indexer alerts are noise
+  - source_matchers:
+      - alertname =~ "SolanaRPCDown|SolanaRPCSlotLagHigh"
+    target_matchers:
+      - severity =~ "warning|info"
+    equal: [job]
+
+  # If P0 wallet drain is firing, suppress P1 fee-payer-low (it's a symptom)
+  - source_matchers:
+      - alertname = "SolanaWalletDrainDetected"
+    target_matchers:
+      - alertname =~ "SolanaFeePayerLow|SolanaFeePayerRefillNeeded"
+
+  # If program is intentionally paused, suppress tx failure alerts
+  - source_matchers:
+      - alertname = "SolanaProgramPaused"
+    target_matchers:
+      - alertname =~ "SolanaTxSuccessRateLow|SolanaInstructionErrors"
+    equal: [program_id]
+
+  # If authority changed (upgrade), suppress the hash-mismatch alert (same root cause)
+  - source_matchers:
+      - alertname = "SolanaAuthorityMismatch"
+    target_matchers:
+      - alertname = "SolanaProgramDataHashChanged"
+    equal: [program_id]
+```
+
+---
+
+## Alert Routing Test
+
+Always validate routing before production:
+
+```bash
+# Validate alertmanager config syntax
+amtool config check --config.file=deploy/alertmanager.yml
+
+# Test that a critical alert routes to pagerduty-p0
+amtool config routes test   --config.file=deploy/alertmanager.yml   alertname="SolanaWalletDrainDetected" severity="critical"
+# Expected output: pagerduty-p0
+
+# Test that a warning routes to discord-warnings
+amtool config routes test   --config.file=deploy/alertmanager.yml   alertname="SolanaFeePayerLow" severity="warning"
+# Expected output: discord-warnings
+
+# Send a live test alert (fire and check delivery)
+amtool alert add alertname="TestAlert" severity="info" env="staging"   --alertmanager.url=http://localhost:9093   --annotation summary="Test — ignore"
+# Then silence it immediately:
+amtool silence add alertname="TestAlert" --duration=10m   --alertmanager.url=http://localhost:9093 --comment "test cleanup"
+```
