@@ -1,72 +1,93 @@
 # Runbook: Wallet Drain Detected
 
-## Severity
+**Alert:** `WalletDrainDetected` | **Severity:** P0 — ALL HANDS
+**Target resolution:** Mitigate within 10 minutes | **Owner:** Protocol Lead + Security
 
-P0 if drain is active. P1 if drain pattern is suspected but not confirmed.
+---
 
-## Symptoms
+## When this fires
+- Unexpected large outflow from treasury or fee payer
+- `solana_set_authority_instruction_total` spikes without planned operation
+- Mint/freeze authority changes not initiated by team
+- `UnexpectedOutflowSOL > <THRESHOLD>`
 
-- `solana_set_authority_instruction_total` spikes unexpectedly
-- Users reporting sudden balance loss after dApp interaction
-- `solana_synthetic_blinks_program_mismatch_total > 0` (drainer in Blinks action)
-- Wallet error logs show `SetAuthority` or bulk `transferChecked` from user accounts
-- Multiple Discord/Twitter reports of "my wallet was emptied"
-- Frontend release, CDN change, or DNS update preceded reports
+---
 
-## First 5 Minutes
-
-1. Confirm: are funds being drained through your legitimate domain or a phishing site?
-2. Check frontend deployment logs — what changed in the last 24h?
-3. Reproduce: connect a blank devnet wallet and inspect transaction instructions being built
-4. Check `solana_set_authority_instruction_total` in Grafana — spike = drainer active
-
-## PromQL
-
-```promql
-# SetAuthority spike (drainer signal)
-rate(solana_set_authority_instruction_total[5m])
-
-# Watchlist wallet interaction
-increase(solana_watchlist_wallet_hit_total[5m])
-
-# Blinks program mismatch (drainer in action)
-solana_synthetic_blinks_program_mismatch_total
-```
-
-## Containment (If Your Frontend Is Serving Drainer Transactions)
+## Immediate actions (do this first)
 
 ```
-[ ] Take frontend OFFLINE immediately (Vercel: disable deployment / Netlify: lock)
-[ ] Post on all official channels: "Investigating an issue — do NOT sign transactions"
-[ ] Do NOT specify the nature of the issue publicly yet
-[ ] Load skill/wallet-security.md → Drainer Detection section
-[ ] Escalate to incident-response-skill: load agents/comms-director.md
-[ ] Audit git history: check commits and deploy hooks in last 48 hours
-[ ] Rotate all deploy keys, CI secrets, DNS credentials
-[ ] Alert exchanges with token address to watch for drainer proceeds
+1. PAGE: Protocol Lead, Security Lead, all engineers
+2. Screenshot ALL wallet balances right now
+3. Join war-room: <WAR_ROOM_CHANNEL>
+4. DO NOT rotate keys from any machine that touched the compromised key
 ```
 
-## User Recovery Guidance (After Containment)
+---
 
+## Diagnosis steps
+
+```bash
+# Confirm drain is active
+BEFORE=$(solana balance <TREASURY_PUBKEY> --url <RPC_URL>)
+sleep 15
+AFTER=$(solana balance <TREASURY_PUBKEY> --url <RPC_URL>)
+[ "$BEFORE" != "$AFTER" ] && echo "DRAIN ACTIVE" || echo "Drain stopped"
+
+# Find suspicious transactions
+curl -s -X POST <RPC_URL> -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSignaturesForAddress\",
+       \"params\":[\"<TREASURY_PUBKEY>\",{\"limit\":20}]}" \
+  | python3 -c "
+import json,sys
+for s in json.load(sys.stdin)['result'][:5]:
+    print(f'slot={s[\"slot\"]} | {s[\"signature\"][:30]}...')
+"
 ```
-1. Visit https://revoke.cash or https://solanatools.xyz — revoke any token approvals
-2. If SetAuthority was called on your token accounts → create a new wallet (ownership is transferred)
-3. If only tokens were drained via delegate approval → revoke + move remaining assets
-4. Report transaction signatures to security@solana.org and Chainalysis for tracing
+
+---
+
+## Remediation
+
+### Step A — Stop the bleeding (use CLEAN machine)
+```bash
+# Transfer remaining funds to cold wallet immediately
+solana transfer <COLD_WALLET_ADDRESS> ALL \
+  --from <HOT_WALLET_KEYPAIR> \
+  --url <RPC_URL> \
+  --allow-unfunded-recipient
 ```
 
-## Cross-Skill Escalation
+### Step B — Pause program via Squads
+```
+https://v3.squads.so → call set_paused(true) → collect 3-of-5 signatures → execute
+Stops all program interactions while investigation proceeds
+```
 
-Load `solana-incident-response-skill/skill/wallet-security.md` for:
-- Drainer contract analysis
-- Authority rotation procedures
-- Post-incident user communication templates
+### Step C — Preserve evidence
+```bash
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+mkdir /tmp/incident-$TIMESTAMP
+# Dump all recent tx signatures before chain prunes them
+curl -s -X POST <RPC_URL> -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSignaturesForAddress\",
+       \"params\":[\"<TREASURY_PUBKEY>\",{\"limit\":1000}]}" \
+  > /tmp/incident-$TIMESTAMP/treasury-sigs.json
+echo "Evidence at: /tmp/incident-$TIMESTAMP/"
+```
 
-## Resolution Criteria
+---
 
-- Drainer source removed (compromised frontend taken offline)
-- Clean deployment verified and live
-- Affected users notified with recovery instructions
-- Token approval revoke guide published
-- Root cause of frontend compromise documented
-- Post-mortem filed in `solana-incident-response-skill`
+## Escalation
+- Drain confirmed → hand off to `solana-incident-response-skill/skill/wallet-security.md`
+- Drain > $10K → notify legal counsel within 1 hour
+- Drain > $100K → law enforcement consultation
+- User funds impacted → SEC/CFTC notification obligation assessment
+
+---
+
+## Post-incident
+- [ ] Drain amount and timeframe confirmed
+- [ ] Attack vector identified
+- [ ] All keys rotated on clean machines
+- [ ] Community disclosure published within 24-72 hours
+- [ ] New security controls implemented
