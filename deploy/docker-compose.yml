@@ -67,61 +67,7 @@ services:
     restart: unless-stopped
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
-    
-  # Blackbox exporter — HTTP probes for synthetic monitoring (synthetic-monitoring.md)
-  blackbox-exporter:
-    image: prom/blackbox-exporter:latest
-    restart: unless-stopped
-    ports:
-      - "9115:9115"
     volumes:
-      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
-    networks:
-      - observability
-
-  # Node exporter — host CPU/memory/disk metrics (infrastructure-monitoring.md)
-  node-exporter:
-    image: prom/node-exporter:latest
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-    networks:
-      - observability
-
-  # Loki — log aggregation (logging-tracing.md)
-  loki:
-    image: grafana/loki:latest
-    restart: unless-stopped
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - loki_data:/loki
-    networks:
-      - observability
-
-  # Promtail — log shipper for Loki
-  promtail:
-    image: grafana/promtail:latest
-    restart: unless-stopped
-    volumes:
-      - /var/log:/var/log:ro
-      - ./promtail.yml:/etc/promtail/config.yml:ro
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - observability
-    depends_on:
-      - loki
-
-volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
@@ -212,12 +158,81 @@ volumes:
     networks:
       - observability
 
+  # ── Blackbox exporter — HTTP probes for synthetic monitoring ──────────────
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: solana-blackbox
+    restart: unless-stopped
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - observability
+
+  # ── Node exporter — host CPU/memory/disk metrics ───────────────────────────
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: solana-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - observability
+
+  # ── Loki — log aggregation backend ────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: solana-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - observability
+
+  # ── Promtail — log shipper (Docker + host logs → Loki) ────────────────────
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: solana-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./promtail.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - observability
+
+
 volumes:
   prometheus_data:
     driver: local
   grafana_data:
     driver: local
   alertmanager_data:
+    driver: local
+  loki_data:
     driver: local
 
 networks:
