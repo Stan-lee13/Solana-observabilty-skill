@@ -88,3 +88,70 @@ solana program show <PROGRAM_ID> --url <RPC_URL> | grep "Last Deployed In Slot"
 - [ ] Full forensic analysis — how was authority obtained?
 - [ ] Community post-mortem published within 72 hours
 - [ ] Upgrade authority moved to immutable Squads multisig
+
+---
+
+## Forensic Transaction Trace
+
+When an unplanned upgrade is confirmed, use this to identify the signer and timing:
+
+```bash
+#!/bin/bash
+# Forensic trace — find who deployed the program upgrade
+
+PROGRAM_ID="${1:-<PROGRAM_ID>}"
+RPC_URL="${RPC_URL:-<RPC_URL>}"
+
+echo "=== FORENSIC TRACE: Program Upgrade ==="
+echo "Program: $PROGRAM_ID"
+echo ""
+
+# Get program data account (where upgrade slot is stored)
+PROGRAM_DATA=$(solana program show "$PROGRAM_ID" --url "$RPC_URL" \
+  | grep "ProgramdataAddress" | awk '{print $2}')
+echo "ProgramData account: $PROGRAM_DATA"
+
+# Get most recent transactions on the program data account (upgrade transactions)
+echo ""
+echo "Recent program data account transactions:"
+curl -s -X POST "$RPC_URL" -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSignaturesForAddress\",
+       \"params\":[\"$PROGRAM_DATA\",{\"limit\":5}]}" \
+  | python3 -c "
+import json,sys
+sigs=json.load(sys.stdin)['result']
+for s in sigs:
+    print(f'  slot={s[\"slot\"]} | sig={s[\"signature\"]}')
+"
+
+# Inspect the most recent transaction for upgrade instruction + signer
+RECENT_SIG=$(curl -s -X POST "$RPC_URL" -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSignaturesForAddress\",
+       \"params\":[\"$PROGRAM_DATA\",{\"limit\":1}]}" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['result'][0]['signature'])")
+
+echo ""
+echo "Upgrade transaction: $RECENT_SIG"
+echo "Inspect at: https://solscan.io/tx/$RECENT_SIG"
+
+solana confirm -v "$RECENT_SIG" --url "$RPC_URL" 2>/dev/null | grep -E "Account|Signer|Program"
+```
+
+---
+
+## Hash Tracking Automation
+
+```bash
+# Add to cron — check program hash every 5 minutes and alert on change
+# crontab: */5 * * * * /opt/scripts/check-program-hash.sh >> /var/log/program-hash.log 2>&1
+
+#!/bin/bash
+EXPECTED_HASH=$(cat /opt/config/expected-program-hash.txt)
+solana program dump <PROGRAM_ID> /tmp/current-check.so --url <RPC_URL> 2>/dev/null
+CURRENT_HASH=$(sha256sum /tmp/current-check.so | awk '{print $1}')
+if [ "$CURRENT_HASH" != "$EXPECTED_HASH" ]; then
+  echo "$(date -u) ALERT: Program hash changed! Expected=$EXPECTED_HASH Current=$CURRENT_HASH"
+  # Trigger PagerDuty / webhook here
+fi
+rm -f /tmp/current-check.so
+```
