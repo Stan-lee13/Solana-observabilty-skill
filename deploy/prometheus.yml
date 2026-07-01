@@ -73,3 +73,54 @@ scrape_configs:
 # For high-cardinality environments (>100 programs, >1000 nodes):
 #   Increase retention.size to 50GB
 #   Consider remote_write to Grafana Cloud or Thanos for long-term storage
+
+  # Node exporter — host CPU/mem/disk metrics
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+).*'
+        replacement: '$1'
+
+  # Alertmanager self-monitoring
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ["alertmanager:9093"]
+
+  # Blackbox exporter — synthetic/canary HTTP probes
+  - job_name: "blackbox-http"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - "${RPC_URL}/health"
+          - "${INDEXER_HEALTH_URL}"
+          - "${APP_HEALTH_URL}"
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "blackbox-exporter:9115"
+
+  # Solana exporter — with explicit metric relabeling
+  - job_name: "solana-exporter-labeled"
+    static_configs:
+      - targets: ["${EXPORTER_HOST:-solana-exporter}:9090"]
+        labels:
+          cluster: "${SOLANA_CLUSTER:-mainnet-beta}"
+          protocol: "${PROTOCOL_NAME:-unknown}"
+    metric_relabel_configs:
+      # Drop high-cardinality per-tx metrics from long-term storage
+      - source_labels: [__name__]
+        regex: 'solana_tx_signature.*'
+        action: drop
+      # Normalize program IDs to short labels
+      - source_labels: [program_id]
+        target_label: program_short
+        regex: '(.{8}).*'
+        replacement: '$1...'
