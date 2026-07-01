@@ -417,3 +417,124 @@ Each playbook must include `detection -> containment -> mitigation -> recovery -
 
 - How to add a new SLI: create Prometheus rule for numerator/denominator, create Grafana panel with SLO metadata, add alert with `runbook_url`.
 - How to onboard a new RPC provider: add to exporter config, add endpoint alias, run synthetic checks, validate against secondary provider.
+
+---
+
+## Production Configuration Snippets
+
+### Prometheus Helm Values (kube-prometheus-stack)
+
+```yaml
+# values-observability.yaml — tuned for Solana monitoring
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    retentionSize: 50GB
+    resources:
+      requests: { cpu: 500m, memory: 2Gi }
+      limits:   { cpu: 2000m, memory: 8Gi }
+    additionalScrapeConfigs:
+      - job_name: solana-exporter
+        static_configs:
+          - targets: ['<EXPORTER_HOST>:9090']
+        scrape_interval: 15s
+    ruleSelector:
+      matchLabels:
+        role: solana-alert-rules
+
+grafana:
+  persistence:
+    enabled: true
+    size: 10Gi
+  adminPassword: <GRAFANA_ADMIN_PASSWORD>
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-operated:9090
+          isDefault: true
+
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: [alertname, severity]
+      receiver: default
+```
+
+### Grafana Dashboard Provisioning
+
+```yaml
+# grafana/provisioning/dashboards/solana.yaml
+apiVersion: 1
+providers:
+  - name: Solana Dashboards
+    folder: Solana
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/solana
+      foldersFromFilesStructure: true
+```
+
+### Cost Estimation Script
+
+```typescript
+// scripts/observability-cost-estimate.ts
+// Run monthly to estimate observability spend
+
+interface CostModel {
+  prometheusGB: number;     // GB of metrics retained
+  grafanaUsers: number;     // Active Grafana users
+  rpcCreditsPerDay: number; // RPC API credits consumed/day
+  logGB: number;            // GB of logs per month
+}
+
+function estimateMonthlyCost(model: CostModel): {
+  total: number; breakdown: Record<string, number>
+} {
+  const breakdown = {
+    'Prometheus storage (self-hosted)': model.prometheusGB * 0.02,  // $0.02/GB/mo
+    'Grafana Cloud (if managed)':       model.grafanaUsers * 8,      // $8/user/mo
+    'Helius RPC credits':               (model.rpcCreditsPerDay * 30) / 1_000_000 * 100, // $100/1M credits
+    'Log storage (Loki/DataDog)':       model.logGB * 0.10,          // $0.10/GB/mo
+    'PagerDuty on-call':                25,                           // $25/user/mo base
+  };
+  const total = Object.values(breakdown).reduce((a,b) => a+b, 0);
+  return { total, breakdown };
+}
+
+const estimate = estimateMonthlyCost({
+  prometheusGB: 50,
+  grafanaUsers: 5,
+  rpcCreditsPerDay: 500_000,
+  logGB: 20,
+});
+console.log(`Estimated monthly observability cost: $${estimate.total.toFixed(2)}`);
+Object.entries(estimate.breakdown).forEach(([k,v]) => console.log(`  ${k}: $${v.toFixed(2)}`));
+```
+
+### Prometheus Remote Write (long-term storage)
+
+```yaml
+# prometheus.yml — ship metrics to Grafana Cloud or Thanos
+remoteWrite:
+  - url: <GRAFANA_CLOUD_REMOTE_WRITE_URL>
+    basicAuth:
+      username: <GRAFANA_CLOUD_INSTANCE_ID>
+      password:
+        name: grafana-cloud-secret
+        key: api-key
+    writeRelabelConfigs:
+      # Only ship critical metrics to remote (reduce cost)
+      - sourceLabels: [__name__]
+        regex: 'solana_(rpc_healthy|fee_payer_balance|tx_success|indexer_lag).*'
+        action: keep
+    queueConfig:
+      maxSamplesPerSend: 5000
+      batchSendDeadline: 10s
+```
