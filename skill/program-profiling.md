@@ -388,3 +388,121 @@ Safety buffer (20%): ___ CU
 → Alert if > 80% consumed: ___ CU
 → Fail CI test if > baseline + 5%: ___ CU
 ```
+
+---
+
+## CU Benchmark Comparison — Before vs After
+
+When optimizing a program, you need to prove the improvement. This script compares CU usage between two commits or program versions:
+
+```typescript
+// scripts/cu-benchmark-compare.ts
+// Usage: npx ts-node scripts/cu-benchmark-compare.ts --baseline <sig-file> --current <program-id>
+
+import { Connection, PublicKey } from '@solana/web3.js';
+import * as fs from 'fs';
+
+interface BenchmarkResult {
+  instruction: string;
+  sampleCount: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  max: number;
+}
+
+async function sampleCU(
+  connection: Connection,
+  programId: string,
+  sampleCount = 50
+): Promise<Map<string, number[]>> {
+  const sigs = await connection.getSignaturesForAddress(
+    new PublicKey(programId), { limit: sampleCount }
+  );
+  const cuByInstruction = new Map<string, number[]>();
+
+  for (const { signature } of sigs) {
+    const tx = await connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+    });
+    const cu = tx?.meta?.computeUnitsConsumed;
+    if (!cu) continue;
+
+    // Group by first instruction type (simplified — extend for multi-ix txs)
+    const ix = tx?.transaction?.message?.instructions?.[0];
+    const ixName = (ix as any)?.parsed?.type ?? 'unknown';
+    const arr = cuByInstruction.get(ixName) ?? [];
+    arr.push(cu);
+    cuByInstruction.set(ixName, arr);
+  }
+  return cuByInstruction;
+}
+
+function percentile(arr: number[], p: number): number {
+  const sorted = [...arr].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length * p / 100)] ?? 0;
+}
+
+function summarize(cuMap: Map<string, number[]>): BenchmarkResult[] {
+  return [...cuMap.entries()].map(([instruction, values]) => ({
+    instruction,
+    sampleCount: values.length,
+    p50: percentile(values, 50),
+    p95: percentile(values, 95),
+    p99: percentile(values, 99),
+    max: Math.max(...values),
+  }));
+}
+
+async function compare(
+  connection: Connection,
+  baselineFile: string,  // JSON file of baseline BenchmarkResult[]
+  currentProgramId: string,
+): Promise<void> {
+  const baseline: BenchmarkResult[] = JSON.parse(fs.readFileSync(baselineFile, 'utf-8'));
+  const currentMap = await sampleCU(connection, currentProgramId);
+  const current = summarize(currentMap);
+
+  console.log('
+═══ CU BENCHMARK COMPARISON ═══
+');
+  console.log(`${'Instruction'.padEnd(25)} ${'Base p95'.padStart(10)} ${'Curr p95'.padStart(10)} ${'Δ p95'.padStart(10)} ${'Status'.padStart(8)}`);
+  console.log('─'.repeat(70));
+
+  for (const b of baseline) {
+    const c = current.find(x => x.instruction === b.instruction);
+    if (!c) { console.log(`${b.instruction.padEnd(25)} (no current data)`); continue; }
+
+    const delta = c.p95 - b.p95;
+    const deltaPct = (delta / b.p95 * 100).toFixed(1);
+    const status = delta > b.p95 * 0.1 ? '❌ REGRESS' : delta < -b.p95 * 0.05 ? '✅ IMPROVE' : '🟡 STABLE';
+    console.log(
+      `${b.instruction.padEnd(25)} ${b.p95.toString().padStart(10)} ${c.p95.toString().padStart(10)} ${(delta > 0 ? '+' : '') + deltaPct + '%'.padStart(8)} ${status}`
+    );
+  }
+
+  // Fail CI if any instruction regressed > 10%
+  const regressions = baseline.filter(b => {
+    const c = current.find(x => x.instruction === b.instruction);
+    return c && (c.p95 - b.p95) / b.p95 > 0.10;
+  });
+  if (regressions.length > 0) {
+    console.error(`
+❌ CU regression detected in: ${regressions.map(r => r.instruction).join(', ')}`);
+    process.exit(1);  // Fails CI gate
+  }
+  console.log('
+✅ No CU regressions detected');
+}
+```
+
+**CI integration:**
+```yaml
+# .github/workflows/cu-regression.yml
+- name: Run CU benchmark comparison
+  run: |
+    npx ts-node scripts/cu-benchmark-compare.ts       --baseline benchmarks/baseline.json       --current ${{ env.PROGRAM_ID }}
+  env:
+    RPC_URL: ${{ secrets.DEVNET_RPC_URL }}
+# Saves baseline on main branch, compares on every PR
+```
