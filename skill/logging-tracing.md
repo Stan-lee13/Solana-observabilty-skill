@@ -492,3 +492,78 @@ datasources:
           matcherRegex: '"trace_id":"([^"]+)"'
           url: 'http://jaeger:16686/trace/${__value.raw}'
 ```
+
+---
+
+## Grafana Tempo — Distributed Trace Backend
+
+Tempo is the recommended trace backend for self-hosted Solana observability stacks (integrates natively with Grafana and Loki for correlated log+trace views).
+
+```yaml
+# docker-compose.yml — add Tempo service
+  tempo:
+    image: grafana/tempo:latest
+    restart: unless-stopped
+    ports:
+      - "3200:3200"   # Tempo HTTP API
+      - "4318:4318"   # OTLP HTTP trace ingestion
+      - "4317:4317"   # OTLP gRPC trace ingestion
+    command: -config.file=/etc/tempo/config.yml
+    volumes:
+      - ./tempo.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/var/tempo
+    networks:
+      - observability
+```
+
+```yaml
+# deploy/tempo.yml — minimal Tempo config
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+```
+
+**Grafana Tempo datasource (add to Grafana provisioning):**
+```yaml
+# deploy/grafana/provisioning/datasources/tempo.yml
+apiVersion: 1
+datasources:
+  - name: Tempo
+    type: tempo
+    url: http://tempo:3200
+    isDefault: false
+    jsonData:
+      tracesToLogs:
+        datasourceUid: loki    # Correlate traces to Loki logs
+        tags: [service, cluster]
+      serviceMap:
+        datasourceUid: prometheus  # Service map from Prometheus metrics
+```
+
+**TraceQL queries for Solana flows:**
+```
+# Find all failed claim transactions
+{ span.solana.program_id = "<PROGRAM_ID>" && status = error }
+
+# Find slow end-to-end flows > 3 seconds
+{ span.name = "claim-flow" && duration > 3s }
+
+# Find all traces for a specific wallet
+{ span.wallet.address = "<WALLET_PUBKEY>" }
+```
